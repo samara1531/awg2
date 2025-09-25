@@ -7,7 +7,7 @@ on:
         description: "OpenWrt version"
         type: string
         required: true
-        default: "24.10.2"
+        default: "24.10.3"
       openwrt_arch:
         description: "OpenWrt arch"
         type: string
