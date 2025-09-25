@@ -1,4 +1,4 @@
-name: Build OpenWRT AmneziaWG
+name: Build OpenWRT toolchain-cache
 on:
   workflow_dispatch:
     inputs:
