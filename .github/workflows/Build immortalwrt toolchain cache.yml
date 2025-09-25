@@ -1,4 +1,4 @@
-name: Build OpenWrt toolchain cache
+name: Build immortalwrt toolchain cache
 on:
   workflow_dispatch:
     inputs:
