@@ -1,4 +1,4 @@
-name: Build Openwrt AmneziaWG from SDK
+name: New - Build AmneziaWG from SDK
 
 on:
   workflow_dispatch:
@@ -67,7 +67,6 @@ jobs:
         set -e -x
         sudo apt-get update
         sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig
-
     - name: Download and prepare SDK
       env:
         compile_go: ${{ inputs.compile_go }}
@@ -88,7 +87,6 @@ jobs:
         tar -xf "$file_name"
         rm -f *.tar.zst
         mv openwrt-sdk* openwrt
-
         echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
         ./openwrt/scripts/feeds update -a
         curl -fsL "$base_url/config.buildinfo" > openwrt/.config
@@ -121,14 +119,12 @@ jobs:
         fi
         make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j $(nproc)
         make package/amneziawg-tools/{clean,download,prepare,compile} -j $(nproc)
-
     - name: Prepare artifacts
       run: |
         set -e -x
         mkdir awgrelease
         find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
         find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
-
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
