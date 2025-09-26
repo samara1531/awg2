@@ -15,4 +15,4 @@
 + Требуется удалить старые пакеты амнезии, перед установкой новых.
 + Так-же обязательно почистить кеш браузера, дабы корректно отобразился новый интрфс. awg
 +
-+ [for immortalwrt](https://github.com/samara15321/awg2/releases)
++ [immortalwrt](https://github.com/samara15321/awg2/releases)
