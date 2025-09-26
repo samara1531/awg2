@@ -85,7 +85,7 @@ jobs:
             fi
 
             # ищем SDK с расширением .tar.zst (SNAPSHOT) или .tar.xz (release)
-            sdk_url=$(curl -s "$BASE_URL" | grep -oP 'href="openwrt-sdk[^"]+\.(tar\.zst|tar\.xz)"' | sed -e 's/href="//' -e 's/"$//' | head -n1)
+            sdk_url=$(curl -s "$BASE_URL" | grep -oE 'openwrt-sdk[^"]+\.(tar\.zst|tar\.xz)' | head -n1)
             if [[ -z "$sdk_url" ]]; then
               echo "⚠️ SDK file not found at $BASE_URL"
               exit 1
