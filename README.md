@@ -1,4 +1,4 @@
-# Another AmneziaWG variation for OpenWrt
+# AmneziaWG 2.0 OpenWRT 
 
 + На неподдерживаемые архитектуры awg-go не собирается (пустой ipk)
 + это архивы размером меньше 1 МБ .
