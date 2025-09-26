@@ -79,22 +79,31 @@ jobs:
             SUBTARGET="${{ matrix.subtarget }}"
 
             if [ "$VERSION" = "SNAPSHOT" ]; then
-                BASE_URL="https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET"
+                MIRRORS=("https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET")
             else
-                BASE_URL="https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                MIRRORS=(
+                    "https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-01.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-02.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-03.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                )
             fi
 
-            # ищем SDK с расширением .tar.zst или .tar.xz
-            sdk_url=$(curl -s "$BASE_URL" | grep -oP 'openwrt-sdk[^<"]+\.(tar\.zst|tar\.xz)' | head -n1)
+            sdk_url=""
+            for BASE_URL in "${MIRRORS[@]}"; do
+                sdk_url=$(curl -fsSL "$BASE_URL" | grep -oP 'openwrt-sdk[^<"]+\.(tar\.zst|tar\.xz)' | head -n1)
+                if [[ -n "$sdk_url" ]]; then
+                    echo "SDK found at $BASE_URL/$sdk_url"
+                    break
+                fi
+            done
 
             if [[ -z "$sdk_url" ]]; then
-              echo "⚠️ SDK file not found at $BASE_URL"
-              echo "Available SDKs on this page:"
-              curl -s "$BASE_URL" | grep openwrt-sdk || true
-              exit 1
+                echo "⚠️ SDK file not found on any mirror"
+                exit 1
             fi
 
-            # скачиваем SDK с поддержкой редиректов
+            # Скачиваем SDK с поддержкой редиректов
             curl -fsLO --location "$BASE_URL/$sdk_url"
 
             file_name=$(basename "$sdk_url")
