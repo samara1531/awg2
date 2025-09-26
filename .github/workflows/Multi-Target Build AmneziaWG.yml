@@ -84,28 +84,32 @@ jobs:
                 BASE_URL="https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
             fi
 
-            SDK_URL=$(curl -s "$BASE_URL/" | grep -oP 'href="[^"]*openwrt-sdk[^"]+\.tar\.zst"' | sed -e 's/href="//' -e 's/"$//' | head -n1)
-            curl -fsLO "$BASE_URL/$SDK_URL"
-            tar -xf $(basename "$SDK_URL")
-            rm -f $(basename "$SDK_URL")
-            mv *sdk-* openwrt
+            sdk_url=$(curl -s "${base_url}" | grep -oP 'href="openwrt-sdk[^"]+\.tar\.zst"' | sed -e 's/href="//' -e 's/"$//' | head -n1)
+            if [[ -z "$sdk_url" ]]; then
+              echo "SDK file not found."
+              exit 1
+            fi
 
+            curl -fsLO "$base_url$sdk_url"
+            file_name=$(basename "$sdk_url")
+            tar -xf "$file_name"
+            rm -f *.tar.zst
+            mv openwrt-sdk* openwrt
             echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
             ./openwrt/scripts/feeds update -a
 
-            curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y"          >> openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y"  >> openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y"      >> openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-amneziawg=y"                    >> openwrt/.config
-            echo "CONFIG_PACKAGE_amneziawg-go=y"                      >> openwrt/.config
-            echo "CONFIG_PACKAGE_amneziawg-tools=y"                   >> openwrt/.config
-            echo "CONFIG_PACKAGE_luci-proto-amneziawg=y"              >> openwrt/.config
+            curl -fsL "$base_url/config.buildinfo" > openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
 
-            # При необходимости заменяем golang
             if [ "${{ env.compile_go }}" = "true" ]; then
-                rm -rf openwrt/feeds/packages/lang/golang
-                cp -r packages/lang/golang openwrt/feeds/packages/lang
+              rm -r openwrt/feeds/packages/lang/golang
+              cp -r packages/lang/golang openwrt/feeds/packages/lang
             fi
 
             ./openwrt/scripts/feeds install -a
