@@ -84,21 +84,22 @@ jobs:
                 BASE_URL="https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
             fi
 
-            sdk_url=$(curl -s "${base_url}" | grep -oP 'href="openwrt-sdk[^"]+\.tar\.zst"' | sed -e 's/href="//' -e 's/"$//' | head -n1)
+            sdk_url=$(curl -s "$BASE_URL" | grep -oP 'href="openwrt-sdk[^"]+\.tar\.zst"' | sed -e 's/href="//' -e 's/"$//' | head -n1)
             if [[ -z "$sdk_url" ]]; then
               echo "SDK file not found."
               exit 1
             fi
 
-            curl -fsLO "$base_url$sdk_url"
+            curl -fsLO "$BASE_URL/$sdk_url"
             file_name=$(basename "$sdk_url")
             tar -xf "$file_name"
             rm -f *.tar.zst
             mv openwrt-sdk* openwrt
+
             echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
             ./openwrt/scripts/feeds update -a
 
-            curl -fsL "$base_url/config.buildinfo" > openwrt/.config
+            curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
