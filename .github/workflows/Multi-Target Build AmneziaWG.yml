@@ -162,8 +162,8 @@ jobs:
             if [ "$(ls -A awgrelease)" ]; then
               zip -r "$ZIP_NAME" awgrelease
               gh release create "${{ github.event.inputs.openwrt_version }}" \
-                --title "OpenWRT AWG-2 ${{ github.event.inputs.openwrt_version }}" \
-                --notes "Build from workflow" \
+                --title "OpenWRT AWG-2.0- ${{ github.event.inputs.openwrt_version }}" \
+                --notes "AmneziaWG 2.0 OpenWRT" \
                 --repo "${{ github.repository }}" || echo "Release already exists"
               gh release upload "${{ github.event.inputs.openwrt_version }}" "$ZIP_NAME" \
                 --clobber \
