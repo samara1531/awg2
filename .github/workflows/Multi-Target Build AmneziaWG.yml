@@ -84,8 +84,9 @@ jobs:
                 BASE_URL="https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
             fi
 
-            # ищем SDK с расширением .tar.zst (SNAPSHOT) или .tar.xz (release)
+            # ищем SDK с расширением .tar.zst или .tar.xz
             sdk_url=$(curl -s "$BASE_URL" | grep -oP 'openwrt-sdk[^<"]+\.(tar\.zst|tar\.xz)' | head -n1)
+
             if [[ -z "$sdk_url" ]]; then
               echo "⚠️ SDK file not found at $BASE_URL"
               echo "Available SDKs on this page:"
@@ -93,7 +94,9 @@ jobs:
               exit 1
             fi
 
-            curl -fsLO "$BASE_URL/$sdk_url"
+            # скачиваем SDK с поддержкой редиректов
+            curl -fsLO --location "$BASE_URL/$sdk_url"
+
             file_name=$(basename "$sdk_url")
             tar -xf "$file_name"
             rm -f *.tar.zst *.tar.xz
