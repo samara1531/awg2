@@ -86,6 +86,7 @@ jobs:
                     "https://mirror-01.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
                     "https://mirror-02.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
                     "https://mirror-03.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-04.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
                 )
             fi
 
