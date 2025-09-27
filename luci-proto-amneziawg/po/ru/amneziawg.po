@@ -42,15 +42,6 @@ msgstr "Импортирует настройки из существующег�
 msgid "AmneziaWG Settings"
 msgstr "Настройки AmneziaWG"
 
-msgid "Imports settings from an existing AmneziaWG configuration file"
-msgstr "Импортирует настройки из существующего файла конфигурации AmneziaWG"
-
-msgid "Imports settings from an existing AmneziaWG configuration file"
-msgstr "Импортирует настройки из существующего файла конфигурации AmneziaWG"
-
-msgid "Imports settings from an existing AmneziaWG configuration file"
-msgstr "Импортирует настройки из существующего файла конфигурации AmneziaWG"
-
 msgid ""
 "Further information about AmneziaWG interfaces and peers at <a href='https://"
 "docs.amnezia.org/documentation/amnezia-wg'>amnezia.org</a>."
@@ -137,6 +128,7 @@ msgstr "PSK"
 msgid "Required. Public key of the AmneziaWG peer."
 msgstr "Обязательно. Публичный ключ AmneziaWG узла."
 
+msgid ""
 "Optional. Private key of the AmneziaWG peer. The key is not required for "
 "establishing a connection but allows generating a peer configuration or QR "
 "code if available. It can be removed after the configuration has been "
