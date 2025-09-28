@@ -1,1 +1,30 @@
 .idea/
+
+# === OpenWrt / ImmortalWRT SDK ===
+openwrt/
+openwrt-sdk-*.tar.*
+immortalwrt-sdk-*.tar.*
+
+# === Build output ===
+bin/
+build_dir/
+staging_dir/
+tmp/
+dl/
+
+# === Feeds ===
+feeds/
+package/feeds/
+
+# === Release artifacts ===
+awgrelease/
+*.zip
+
+# === Logs ===
+*.log
+*.diff
+*.rej
+
+# === System cruft ===
+.DS_Store
+Thumbs.db
