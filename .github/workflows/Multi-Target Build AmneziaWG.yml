@@ -6,7 +6,7 @@ on:
       openwrt_version:
         description: "OpenWrt version"
         required: true
-        default: "24.10.4"
+        default: "24.10.1"
       amneziawg_version:
         description: "AmneziaWG version"
         required: true
