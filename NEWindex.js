@@ -1,6 +1,8 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const zlib = require('zlib').promises; // Node >= 12+
+const version = process.argv[2];
+const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
 
 /**
  * Попытка получить текст из Packages.gz или Packages
