@@ -1,108 +1,93 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const zlib = require('zlib').promises;
 
 const version = process.argv[2];
 if (!version) {
-  console.error("Version is required");
-  console.log(JSON.stringify({ include: [] }));
-  process.exit(0);
+  console.error('Version argument is required');
+  process.exit(1);
 }
 
-const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
+const url = `https://downloads.openwrt.org/releases/${version}/targets/`;
 
 async function fetchHTML(url) {
-  const { data } = await axios.get(url, { timeout: 20000 });
+  const { data } = await axios.get(url);
   return cheerio.load(data);
 }
 
-async function fetchPackagesText(packagesDirUrl) {
-  try {
-    const gzUrl = `${packagesDirUrl}Packages.gz`;
-    const resp = await axios.get(gzUrl, { responseType: 'arraybuffer', timeout: 15000 });
-    const unzipped = await zlib.gunzip(resp.data);
-    return unzipped.toString("utf8");
-  } catch {}
-
-  try {
-    const url = `${packagesDirUrl}Packages`;
-    const resp = await axios.get(url, { timeout: 15000 });
-    return resp.data.toString();
-  } catch {}
-
-  return null;
-}
-
 async function getTargets() {
-  const $ = await fetchHTML(baseUrl);
-  return $("table tr td.n a")
-    .map((i, el) => $(el).attr("href"))
+  const $ = await fetchHTML(url);
+  return $('table tr td.n a')
+    .map((i, el) => $(el).attr('href'))
     .get()
-    .filter(href => href.endsWith("/"))
+    .filter(href => href && href.endsWith('/'))
     .map(href => href.slice(0, -1));
 }
 
 async function getSubtargets(target) {
-  const $ = await fetchHTML(`${baseUrl}${target}/`);
-  return $("table tr td.n a")
-    .map((i, el) => $(el).attr("href"))
+  const $ = await fetchHTML(`${url}${target}/`);
+  return $('table tr td.n a')
+    .map((i, el) => $(el).attr('href'))
     .get()
-    .filter(href => href.endsWith("/"))
+    .filter(href => href && href.endsWith('/'))
     .map(href => href.slice(0, -1));
 }
 
 async function getPkgarch(target, subtarget) {
-  const packagesUrl = `${baseUrl}${target}/${subtarget}/packages/`;
+  const packagesUrl = `${url}${target}/${subtarget}/packages/`;
+  const $ = await fetchHTML(packagesUrl);
 
-  const pkgsText = await fetchPackagesText(packagesUrl);
-  if (pkgsText) {
-    const entries = pkgsText.split(/\r?\n\r?\n/);
-    for (const entry of entries) {
-      const m = entry.match(/^Architecture:\s*(.+)$/m);
-      if (m && m[1] !== "all") return m[1].trim();
+  let pkgarch = '';
+
+  // ищем первый не-kernel .ipk (обычно правильный arch)
+  $('a').each((i, el) => {
+    const name = $(el).attr('href');
+    if (name && name.endsWith('.ipk') && !name.startsWith('kernel_')) {
+      // Берём всё между последним _ после имени версии и .ipk
+      const match = name.match(/^[^_]+_[^_]+_(.+)\.ipk$/);
+      if (match) {
+        pkgarch = match[1];
+        return false; // break
+      }
     }
+  });
+
+  // fallback: если ничего не нашли, пробуем kernel_*
+  if (!pkgarch) {
+    $('a').each((i, el) => {
+      const name = $(el).attr('href');
+      if (name && name.startsWith('kernel_')) {
+        const match = name.match(/^kernel_[^_]+_(.+)\.ipk$/);
+        if (match) {
+          pkgarch = match[1];
+          return false;
+        }
+      }
+    });
   }
 
-  try {
-    const $ = await fetchHTML(packagesUrl);
-
-    for (const el of $("a").toArray()) {
-      const name = $(el).attr("href");
-      if (name && name.endsWith(".ipk") && !name.startsWith("kernel_")) {
-        const m = name.match(/_([^_]+)\.ipk$/);
-        if (m) return m[1];
-      }
-    }
-
-    for (const el of $("a").toArray()) {
-      const name = $(el).attr("href");
-      if (name && name.startsWith("kernel_")) {
-        const m = name.match(/_([^_]+)\.ipk$/);
-        if (m) return m[1];
-      }
-    }
-  } catch {}
-
-  return "unknown";
+  return pkgarch || 'unknown';
 }
 
-(async () => {
+async function main() {
   try {
-    const result = [];
-
     const targets = await getTargets();
+    const matrix = [];
+
     for (const target of targets) {
       const subtargets = await getSubtargets(target);
-      for (const sub of subtargets) {
-        const pkgarch = await getPkgarch(target, sub);
-        result.push({ target, subtarget: sub, pkgarch });
+      for (const subtarget of subtargets) {
+        const pkgarch = await getPkgarch(target, subtarget);
+        matrix.push({ target, subtarget, pkgarch });
       }
     }
 
-    console.log(JSON.stringify({ include: result }, null, 2));
-  } catch (e) {
-    console.error("ERROR:", e);
-    // чтобы не ломать GH Actions — выдаём пустой JSON, но НЕ пустую строку
-    console.log(JSON.stringify({ include: [] }));
+    // вывод для GitHub Actions
+    console.log(JSON.stringify({ include: matrix }));
+
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
   }
-})();
+}
+
+main();
