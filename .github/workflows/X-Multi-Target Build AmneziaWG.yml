@@ -42,7 +42,7 @@ jobs:
       - name: Generate build matrix
         id: set-matrix
         run: |
-          node NEWindex.js ${{ inputs.openwrt_version }} > matrix.json
+          node index.js ${{ inputs.openwrt_version }} > matrix.json
           MATRIX=$(cat matrix.json)
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           echo "Generated $(echo $MATRIX | jq -r '.include | length') combinations"
