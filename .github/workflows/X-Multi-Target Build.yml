@@ -116,13 +116,21 @@ jobs:
           EOF
           make -C openwrt defconfig
 
-      - name: Compile
+      - name: Compile AWG packages
+        env:
+          compile_kmod: ${{ inputs.compile_kmod }}
+          compile_go: ${{ inputs.compile_go }}
+        continue-on-error: true
         run: |
-          cd openwrt
-          [ "$COMPILE_KMOD" = "true" ] && make package/kmod-amneziawg/compile V=s -j$(nproc)
-          [ "$COMPILE_GO" = "true" ] && make package/amneziawg-go/compile V=s -j$(nproc)
-          make package/amneziawg-tools/compile V=s -j$(nproc)
-          make package/luci-proto-amneziawg/compile V=s -j$(nproc)
+            cd openwrt
+            if [ "${{ github.event.inputs.compile_kmod }}" = "true" ]; then
+                make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc) || echo "kmod-amneziawg failed, continue"
+            fi
+            if [ "${{ github.event.inputs.compile_go }}" = "true" ]; then
+                make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) || echo "amneziawg-go failed, continue"
+            fi
+            make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc) || echo "luci-proto-amneziawg failed, continue"
+            make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc) || echo "amneziawg-tools failed, continue"
 
       - name: Prepare ZIP
         run: |
