@@ -1,3 +1,4 @@
+// generate-matrix.js
 const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
@@ -10,12 +11,8 @@ if (!version) {
 }
 
 const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
-const http = axios.create({
-  timeout: 15_000,
-  headers: { 'User-Agent': 'OpenWrt-Matrix-Bot/1.0' },
-});
+const http = axios.create({ timeout: 15000 });
 
-// ------------------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ -------------------
 async function fetchHTML(url) {
   for (let i = 0; i < 3; i++) {
     try {
@@ -49,85 +46,47 @@ async function getSubtargets(target) {
 async function getPkgarch(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/`;
   let pkgarch = 'unknown';
-
   try {
     const $ = await fetchHTML(url);
-
-    // 1. Любой .ipk кроме kernel_
     $('a').each((_, el) => {
       const name = $(el).attr('href');
       if (name?.endsWith('.ipk') && !name.startsWith('kernel_')) {
         const m = name.match(/_([^_]+)\.ipk$/);
-        if (m) {
-          pkgarch = m[1];
-          return false;
-        }
+        if (m) { pkgarch = m[1]; return false; }
       }
     });
-
-    // 2. fallback — kernel_
     if (pkgarch === 'unknown') {
       $('a').each((_, el) => {
         const name = $(el).attr('href');
         if (name?.startsWith('kernel_') && name.endsWith('.ipk')) {
           const m = name.match(/_([^_]+)\.ipk$/);
-          if (m) {
-            pkgarch = m[1];
-            return false;
-          }
+          if (m) { pkgarch = m[1]; return false; }
         }
       });
     }
-  } catch (e) {
-    // Тихо игнорируем ошибки отдельных subtarget'ов
-  }
+  } catch (e) { /* игнорируем */ }
   return pkgarch;
 }
 
-// ------------------- ОСНОВНАЯ ЛОГИКА -------------------
 (async () => {
   try {
     const targets = await getTargets();
-
     const matrix = [];
 
-    // Ограничиваем параллелизм, чтобы не убить сервер OpenWrt
-    const concurrency = 8;
-    for (let i = 0; i < targets.length; i += concurrency) {
-      const batch = targets.slice(i, i + concurrency);
-      await Promise.all(
-        batch.map(async (target) => {
-          const subtargets = await getSubtargets(target);
-          const results = await Promise.all(
-            subtargets.map(async (st) => ({
-              target,
-              subtarget: st,
-              pkgarch: await getPkgarch(target, st),
-            }))
-          );
-          matrix.push(...results);
-        })
-      );
+    for (const target of targets) {
+      const subtargets = await getSubtargets(target);
+      for (const subtarget of subtargets) {
+        const pkgarch = await getPkgarch(target, subtarget);
+        matrix.push({ target, subtarget, pkgarch });
+      }
     }
 
-    // Сортируем для предсказуемости
     matrix.sort((a, b) => `${a.target}/${a.subtarget}`.localeCompare(`${b.target}/${b.subtarget}`));
 
-    // === ВАЖНО: только этот вывод! Никаких console.log! ===
-    const output = `matrix=${JSON.stringify({ include: matrix })}\n`;
-    const outputPath = process.env.GITHUB_OUTPUT;
-    if (outputPath) {
-      fs.appendFileSync(outputPath, output);
-    } else {
-      // fallback для локального тестирования
-      console.log(output);
-    }
-
-    // Для отладки можно включить (но в CI лучше закомментировать)
-    // console.log(`Готово! Комбинаций: ${matrix.length}`);
-
+    // ВЫВОДИМ ТОЛЬКО ЧИСТЫЙ JSON — НИКАКИХ console.log!!!
+    console.log(JSON.stringify({ include: matrix }));
   } catch (err) {
-    console.error('Критическая ошибка:', err.message);
+    console.error('Ошибка:', err.message);
     process.exit(1);
   }
 })();
