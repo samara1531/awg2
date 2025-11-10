@@ -43,8 +43,7 @@ jobs:
         id: set-matrix
         run: |
           node generate-matrix.js ${{ inputs.openwrt_version }} > matrix.json
-          MATRIX=$(cat matrix.json)
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
 
   build-awg:
     needs: generate-matrix
