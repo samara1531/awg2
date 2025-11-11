@@ -147,15 +147,29 @@ jobs:
   create-release:
     needs: build-awg
     runs-on: ubuntu-22.04
+    # ← Добавляем checkout, чтобы gh знал, в каком мы репо
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - run: |
-          find artifacts -name "*.zip" -exec mv {} . \;
+
+      - name: Create or update release
+        run: |
+          # Перемещаем все ZIPы в корень
+          find artifacts -type f -name "*.zip" -exec mv {} . \;
+
+          # Удаляем старый релиз (если есть)
           gh release delete "${{ github.event.inputs.openwrt_version }}" --yes || true
-          gh release create "${{ github.event.inputs.openwrt_version }}" ./*.zip \
+
+          # Создаём новый — теперь gh знает репо благодаря checkout!
+          gh release create "${{ github.event.inputs.openwrt_version }}" \
+            ./*.zip \
             --title "AmneziaWG OpenWrt ${{ github.event.inputs.openwrt_version }}" \
-            --notes "Автосборка от $(date +%F_%H-%M)"
+            --notes "Автосборка от $(date '+%Y-%m-%d %H:%M UTC')" \
+            --clobber
+
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
