@@ -8,15 +8,17 @@ on:
         required: true
         default: "24.10.0"
       amneziawg_version:
-        description: "AmneziaWG version (branch/tag)"
+        description: "AmneziaWG version"
         required: true
         default: "main"
       compile_kmod:
         description: "Compile kernel module"
+        required: true
         type: boolean
         default: true
       compile_go:
         description: "Compile Go implementation"
+        required: true
         type: boolean
         default: true
 
@@ -27,14 +29,21 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install axios cheerio
-      - id: set-matrix
+
+      - name: Install dependencies
         run: |
-          MATRIX=$(node index.js ${{ github.event.inputs.openwrt_version }})
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+            npm install axios cheerio
+
+      - name: Generate build matrix
+        id: set-matrix
+        run: |
+            MATRIX=$(node index.js ${{ github.event.inputs.openwrt_version }})
+            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   build-awg:
     needs: generate-matrix
@@ -42,79 +51,86 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-    env:
-      COMPILE_KMOD: ${{ github.event.inputs.compile_kmod }}
-      COMPILE_GO: ${{ github.event.inputs.compile_go }}
-      OPENWRT_VERSION: ${{ github.event.inputs.openwrt_version }}
-      AMNEZIAWG_VERSION: ${{ github.event.inputs.amneziawg_version }}
     steps:
       - uses: actions/checkout@v4
         with:
           path: amneziawg
-          ref: ${{ env.AMNEZIAWG_VERSION }}
 
-      - uses: actions/checkout@v4
+      - name: Checkout OpenWRT Packages repository
+        uses: actions/checkout@v4
+        if: ${{ github.event.inputs.openwrt_version }}
         with:
-          repository: openwrt/packages
           path: packages
-          ref: master
+          repository: openwrt/packages
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig curl zip zstd
+            sudo apt-get update
+            sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig curl zip zstd
 
       - name: Download and prepare SDK
+        env:
+          compile_go: ${{ inputs.compile_go }}
         run: |
-          set -e -x
-          VERSION="$OPENWRT_VERSION"
-          TARGET="${{ matrix.target }}"
-          SUBTARGET="${{ matrix.subtarget }}"
+            set -e -x
+            VERSION="${{ github.event.inputs.openwrt_version }}"
+            TARGET="${{ matrix.target }}"
+            SUBTARGET="${{ matrix.subtarget }}"
 
-          if [ "$VERSION" = "SNAPSHOT" ]; then
-            MIRRORS=("https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET")
-          else
-            MIRRORS=(
-              "https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
-              "https://mirror-03.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
-            )
-          fi
+            if [ "$VERSION" = "SNAPSHOT" ]; then
+                MIRRORS=("https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET")
+            else
+                MIRRORS=(
+                    "https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-03.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-01.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-02.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                    "https://mirror-04.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+                )
+            fi
 
-          sdk_url=""
-          for BASE in "${MIRRORS[@]}"; do
-            sdk_url=$(curl -fsSL "$BASE" | grep -oP 'openwrt-sdk[^"]+\.(tar\.zst|tar\.xz)' | head -1)
-            [[ -n "$sdk_url" ]] && break
-          done
+            sdk_url=""
+            for BASE_URL in "${MIRRORS[@]}"; do
+                sdk_url=$(curl -fsSL "$BASE_URL" | grep -oP 'openwrt-sdk[^<"]+\.(tar\.zst|tar\.xz)' | head -n1)
+                if [[ -n "$sdk_url" ]]; then
+                    echo "SDK found at $BASE_URL/$sdk_url"
+                    break
+                fi
+            done
 
-          [[ -z "$sdk_url" ]] && { echo "SDK not found"; exit 1; }
+            if [[ -z "$sdk_url" ]]; then
+                echo "⚠️ SDK file not found on any mirror"
+                exit 1
+            fi
 
-          curl -fsLO --retry 3 "$BASE/$sdk_url"
-          tar -xf $(basename "$sdk_url")
-          rm -f *.tar.*
-          mv openwrt-sdk* openwrt
+            # Скачиваем SDK с поддержкой редиректов
+            curl -fsLO --location "$BASE_URL/$sdk_url"
 
-          echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
-          ./openwrt/scripts/feeds update -a
-          ./openwrt/scripts/feeds install -a
+            file_name=$(basename "$sdk_url")
+            tar -xf "$file_name"
+            rm -f *.tar.zst *.tar.xz
+            mv openwrt-sdk* openwrt
 
-          if [ "$COMPILE_GO" = "true" ]; then
-            rm -rf openwrt/feeds/packages/lang/golang
-            cp -r packages/lang/golang openwrt/feeds/packages/lang
-            ./openwrt/scripts/feeds update packages
-            ./openwrt/scripts/feeds install golang
-          fi
+            echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
+            ./openwrt/scripts/feeds update -a
 
-          curl -fsL "$BASE/config.buildinfo" -o openwrt/.config || true
-          cat >> openwrt/.config <<EOF
-          CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y
-          CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y
-          CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y
-          CONFIG_PACKAGE_kmod-amneziawg=y
-          CONFIG_PACKAGE_amneziawg-go=y
-          CONFIG_PACKAGE_amneziawg-tools=y
-          CONFIG_PACKAGE_luci-proto-amneziawg=y
-          EOF
-          make -C openwrt defconfig
+            curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
+            echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
+
+            if [ "${{ env.compile_go }}" = "true" ]; then
+              rm -r openwrt/feeds/packages/lang/golang
+              cp -r packages/lang/golang openwrt/feeds/packages/lang
+            fi
+
+            ./openwrt/scripts/feeds install -a
+            make -C openwrt defconfig
 
       - name: Compile AWG packages
         env:
