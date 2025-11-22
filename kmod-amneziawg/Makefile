@@ -8,9 +8,9 @@ WIREGUARD_VERSION:=1.0.0
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/this-username-has-been-taken/amneziawg-linux-kernel-module.git
-# Reference: issue/1-fix-interface-statistics branch
-PKG_SOURCE_VERSION:=2dbd2c16876e8ace043271e079eea0780c197b58
-PKG_MIRROR_HASH:=fd2d172fb8015e245007d0927214daa341f7f0d8b631d0b3efb6fa194bf2780b
+# Reference: master branch
+PKG_SOURCE_VERSION:=44276df04a3b84e74c470afab84fdb42bd078e8c
+PKG_MIRROR_HASH:=41a3710965215764cc7aeadfbccc245ef423e0badad31dcf1dee7b3c42b7a78b
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 MAKE_PATH:=src
