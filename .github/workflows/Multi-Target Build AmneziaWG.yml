@@ -12,12 +12,12 @@ on:
         default: "main"
       compile_kmod:
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: "true"
       compile_go:
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: "true"
 
 jobs:
   generate-matrix:
@@ -40,7 +40,6 @@ jobs:
         run: |
           MATRIX=$(node index.js ${{ inputs.openwrt_version }})
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-
 
   build-awg:
     needs: generate-matrix
@@ -86,8 +85,7 @@ jobs:
         if: steps.check_zip.outputs.zip_exists == 'true'
         run: exit 0
 
-
-      # ---------- СБОРКА СТАНДАРТНАЯ ----------
+      # ---------- СБОРКА ----------
       - name: Checkout OpenWRT Packages repository
         uses: actions/checkout@v4
         with:
@@ -136,6 +134,9 @@ jobs:
           ./openwrt/scripts/feeds update -a
 
           curl -fsL "$BASE/config.buildinfo" > openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
@@ -152,13 +153,13 @@ jobs:
         run: |
           cd openwrt
           if [ "$compile_kmod" = "true" ]; then
-            make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+              make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
           if [ "$compile_go" = "true" ]; then
-            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc)
+              make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc)
           fi
-          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
 
       - name: Upload release assets
         env:
