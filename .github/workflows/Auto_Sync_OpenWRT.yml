@@ -1,0 +1,62 @@
+name: Auto_Sync OpenWRT Releases
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-releases:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.get_release.outputs.release_tag }}
+      new_tag: ${{ steps.check_metadata.outputs.new_tag }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get the latest OpenWrt release tag
+        id: get_release
+        run: |
+          RELEASE_TAG=$(curl -s https://api.github.com/repos/openwrt/openwrt/tags | jq -r '.[0].name')
+          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Compare saved release tag
+        id: check_metadata
+        run: |
+          NEW_TAG="false"
+          CURRENT="${{ steps.get_release.outputs.release_tag }}"
+
+          if [ -f saved_release_metadata.txt ]; then
+            SAVED=$(cut -d',' -f1 saved_release_metadata.txt)
+            if [ "$SAVED" != "$CURRENT" ]; then
+              NEW_TAG="true"
+            fi
+          else
+            NEW_TAG="true"
+          fi
+
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: Save new tag
+        if: steps.check_metadata.outputs.new_tag == 'true'
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          DATE=$(date "+%Y-%m-%d %H:%M:%S")
+          echo "${{ steps.get_release.outputs.release_tag }},$DATE" > saved_release_metadata.txt
+
+          git add saved_release_metadata.txt
+          git commit -m "Update saved release tag"
+          git push
+
+  build-awg:
+    needs: sync-releases
+    if: needs.sync-releases.outputs.new_tag == 'true'
+    uses: ./.github/workflows/Multi-Target Build AmneziaWG.yml
+    with:
+      openwrt_version: ${{ needs.sync-releases.outputs.release_tag }}
+      amneziawg_version: main
+      compile_kmod: true
+      compile_go: true
