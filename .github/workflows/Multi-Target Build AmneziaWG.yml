@@ -1,40 +1,23 @@
 name: Multi-Target Build AmneziaWG
 
 on:
-  workflow_dispatch:
-    inputs:
-      openwrt_version:
-        description: "OpenWrt version"
-        required: true
-      amneziawg_version:
-        description: "AmneziaWG version"
-        required: true
-      compile_kmod:
-        description: "Compile kernel module"
-        type: boolean
-        required: true
-        default: true
-      compile_go:
-        description: "Compile Go implementation"
-        type: boolean
-        required: true
-        default: true
-
   workflow_call:
     inputs:
       openwrt_version:
         required: true
         type: string
       amneziawg_version:
-        required: true
+        required: false
         type: string
+        default: "main"
       compile_kmod:
-        required: true
+        required: false
         type: boolean
+        default: true
       compile_go:
-        required: true
+        required: false
         type: boolean
-
+        default: true
 
 jobs:
   generate-matrix:
@@ -118,6 +101,8 @@ jobs:
           sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig curl zip zstd jq
 
       - name: Download and prepare SDK
+        env:
+          compile_go: ${{ inputs.compile_go }}
         run: |
           VERSION="${{ inputs.openwrt_version }}"
           TARGET="${{ matrix.target }}"
@@ -160,7 +145,11 @@ jobs:
           make -C openwrt defconfig
 
       - name: Compile AWG packages
-        run: |
+        env:
+          compile_kmod: "${{ inputs.compile_kmod }}"
+          compile_go: "${{ inputs.compile_go }}"
+        continue-on-error: true
+        run: | 
           cd openwrt
           if [ "${{ inputs.compile_kmod }}" = "true" ]; then
               make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
