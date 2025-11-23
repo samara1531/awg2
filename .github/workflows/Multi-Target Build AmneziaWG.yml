@@ -100,7 +100,7 @@ jobs:
 
       - name: Download and prepare SDK
         env:
-          compile_go: ${{ inputs.compile_go }}
+          compile_go:  "${{ inputs.compile_go }}"
         run: |
           VERSION="${{ inputs.openwrt_version }}"
           TARGET="${{ matrix.target }}"
