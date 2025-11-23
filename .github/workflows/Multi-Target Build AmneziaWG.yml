@@ -146,19 +146,19 @@ jobs:
 
       - name: Compile AWG packages
         env:
-          compile_kmod: "${{ inputs.compile_kmod }}"
-          compile_go: "${{ inputs.compile_go }}"
+          compile_kmod: ${{ inputs.compile_kmod }}
+          compile_go:  ${{ inputs.compile_go }}
         continue-on-error: true
-        run: | 
+        run: |
           cd openwrt
-          if [ "${{ inputs.compile_kmod }}" = "true" ]; then
-              make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          if [ "$compile_kmod" = "true" ]; then
+            make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           fi
-          if [ "${{ inputs.compile_go }}" = "true" ]; then
-              make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc)
+          if [ "$compile_go" = "true" ]; then
+            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc)
           fi
-          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
 
       - name: Upload release assets
         env:
