@@ -201,22 +201,17 @@ jobs:
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           LUCI_STATUS=$?
 
-      - name: Compile amneziawg-go
-        if: ${{ inputs.compile_go == 'true' }}
-        run: |
-            echo "====== Building amneziawg-go ======"
-            cd openwrt
-            set -o pipefail
+          if [ "$compile_go" = "true" ]; then
+            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
+              || echo "amneziawg-go failed — continuing anyway"
+          fi
 
-            # Полный вывод в консоль и в файл
-            make V=s package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) 2>&1 | tee ../amneziawg-go.log
-            GO_STATUS=${PIPESTATUS[0]}
+          if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
+            echo "One or more REQUIRED packages failed"
+            exit 1
+          fi
 
-            if [ $GO_STATUS -ne 0 ]; then
-                echo "⚠️ amneziawg-go build failed, see amneziawg-go.log for details"
-            else
-                echo "✅ amneziawg-go built successfully"
-            fi
+          echo "All required packages built successfully"
 
       - name: Upload release assets
         env:
