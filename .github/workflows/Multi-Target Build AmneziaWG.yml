@@ -50,21 +50,26 @@ jobs:
     outputs:
       build_needed: ${{ steps.set_build_needed.outputs.build_needed }}
     steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Check if ZIP exists in release
         id: set_build_needed
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ZIP_NAME="OpenWRT-awg-2-${{ inputs.openwrt_version }}-${{ matrix.target }}-${{ matrix.subtarget }}-${{ matrix.pkgarch }}.zip"
           echo "Checking release for $ZIP_NAME"
-          EXISTS=$(gh release view "${{ inputs.openwrt_version }}" --json assets -q ".assets[].name" 2>/dev/null | grep -Fx "$ZIP_NAME" || true)
-          if [ -n "$EXISTS" ]; then
-            echo "ZIP exists, skipping build"
+
+          ASSETS=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.openwrt_version }}" \
+            | jq -r '.assets[].name')
+
+          echo "Assets in release:"
+          echo "$ASSETS"
+
+          if echo "$ASSETS" | grep -Fx "$ZIP_NAME" >/dev/null 2>&1; then
             echo "build_needed=false" >> $GITHUB_OUTPUT
           else
-            echo "ZIP not found, build needed"
             echo "build_needed=true" >> $GITHUB_OUTPUT
-          fi  
+          fi
 
   build-awg:
     needs: [generate-matrix, check-zip]
