@@ -20,6 +20,7 @@ on:
         default: true
 
 jobs:
+  # 1. Генерируем матрицу целей
   generate-matrix:
     runs-on: ubuntu-22.04
     outputs:
@@ -41,60 +42,95 @@ jobs:
           MATRIX=$(node index.js "${{ inputs.openwrt_version }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
-  check-zip:
+  # 2. Один раз проверяем, какие ZIP-ы уже есть в релизе
+  check-existing-assets:
     needs: generate-matrix
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+    runs-on: ubuntu-22.04
     outputs:
-      build_needed: ${{ steps.set_build_needed.outputs.build_needed }}
+      matrix: ${{ steps.filter.outputs.matrix }}
     steps:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Check if ZIP exists in release
-        id: set_build_needed
+    
+      - name: Download list of existing assets
+        id: get-assets
         run: |
-          ZIP_NAME="OpenWRT-awg-2-${{ inputs.openwrt_version }}-${{ matrix.target }}-${{ matrix.subtarget }}-${{ matrix.pkgarch }}.zip"
-          echo "Checking release for $ZIP_NAME"
-
-          ASSETS=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.openwrt_version }}" \
-            | jq -r '.assets[].name')
-
-          echo "Assets in release:"
-          echo "$ASSETS"
-
-          if echo "$ASSETS" | grep -Fx "$ZIP_NAME" >/dev/null 2>&1; then
-            echo "build_needed=false" >> $GITHUB_OUTPUT
-          else
-            echo "build_needed=true" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.openwrt_version }}" = "SNAPSHOT" ]; then
+            echo "skip_check=true" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
+          ASSETS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.openwrt_version }}" \
+            | jq -r '.assets[].name // empty')
+
+          echo "$ASSETS" > existing_assets.txt
+          cat existing_assets.txt
+
+      - name: Filter matrix — leave only targets that need build
+        id: filter
+        run: |
+          ORIGINAL='${{ needs.generate-matrix.outputs.matrix }}'
+
+          # Если SNAPSHOT — собираем всё
+          if [ "${{ inputs.openwrt_version }}" = "SNAPSHOT" ]; then
+            echo "matrix=$ORIGINAL" >> $GITHUB_OUTPUT
+            echo "SNAPSHOT → build all targets"
+            exit 0
+          fi
+
+          # Получаем список уже загруженных ZIP-ов
+          mapfile -t EXISTING < <(
+            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.openwrt_version }}" \
+            | jq -r '.assets[].name' 2>/dev/null || true
+          )
+
+          # Если релиз не найден или пустой — собираем всё
+          if [ ${#EXISTING[@]} -eq 0 ]; then
+            echo "matrix=$ORIGINAL" >> $GITHUB_OUTPUT
+            echo "No existing assets → build all targets"
+            exit 0
+          fi
+
+          # ВАЖНО: используем $args (строго маленькая буква!)
+          FILTERED=$(jq -c --args '
+            .include |= [ .[] | select(
+              "OpenWRT-awg-2-${{ inputs.openwrt_version }}-\(.target)-\(.subtarget)-\(.pkgarch).zip" as $need
+              | all($args[]; . != $need)
+            )]
+          ' -- "${EXISTING[@]}" <<< "$ORIGINAL")
+
+          # Защита от падения
+          [ -z "$FILTERED" ] && FILTERED='{"include":[]}'
+
+          echo "matrix=$FILTERED" >> $GITHUB_OUTPUT
+          echo "Осталось собрать: $(jq '.include | length' <<< "$FILTERED") целей"
+
+  # 3. Сама сборка
   build-awg:
-    needs: [generate-matrix, check-zip]
-    if: needs.check-zip.outputs.build_needed == 'true'
+    needs: [generate-matrix, check-existing-assets]
+    if: ${{ needs.check-existing-assets.outputs.matrix != '{"include":[]}' || inputs.openwrt_version == 'SNAPSHOT' }}
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.check-existing-assets.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
         with:
           path: amneziawg
 
-      - name: Checkout OpenWRT Packages repository
-        uses: actions/checkout@v4
-        with:
-          path: packages
-          repository: openwrt/packages
-          fetch-depth: 0
-
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig curl zip zstd jq
+          sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools \
+            swig curl zip zstd jq unzip build-essential libelf-dev
 
+      - name: Checkout lWrt packages (для свежего golang)
+        uses: actions/checkout@v4
+        with:
+          repository: openwrt/packages
+          path: packages
 
       - name: Download and prepare SDK
         env:
