@@ -184,36 +184,29 @@ jobs:
         env:
           compile_go: ${{ inputs.compile_go }}
         run: |
-            cd openwrt
+          cd openwrt
+          set +e
 
-            set +e
+          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          KMOD_STATUS=$?
 
-            # Обязательные пакеты — ошибки критические
-            make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-            KMOD_STATUS=$?
+          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+          TOOLS_STATUS=$?
 
-            make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-            LUCI_STATUS=$?
+          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          LUCI_STATUS=$?
 
-            make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
-            TOOLS_STATUS=$?
+          if [ "$compile_go" = "true" ]; then
+            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
+              || echo "amneziawg-go failed — continuing anyway"
+          fi
 
-            # Необязательный пакет — ошибка не критична
-            if [ "$compile_go" = "true" ]; then
-                make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
-                    || echo "amneziawg-go failed — continuing anyway"
-            fi
+          if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
+            echo "One or more REQUIRED packages failed"
+            exit 1
+          fi
 
-            # Проверка обязательных пакетов
-            if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
-                echo "❌ One or more REQUIRED packages failed:"
-                echo "kmod status: $KMOD_STATUS"
-                echo "luci-proto status: $LUCI_STATUS"
-                echo "tools status: $TOOLS_STATUS"
-                exit 1
-            fi
-
-            echo "✅ All required packages built successfully"
+          echo "All required packages built successfully"
 
       - name: Upload release assets
         env:
