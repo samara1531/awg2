@@ -217,18 +217,23 @@ jobs:
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VER: ${{ inputs.openwrt_version }}
         run: |
           mkdir -p awgrelease
 
-          cp openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages/kmod-amneziawg* awgrelease 2>/dev/null || true
+          cp -f openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages/kmod-amneziawg* awgrelease/ 2>/dev/null || true
+          find "openwrt/bin/packages/${{ matrix.pkgarch }}/" -maxdepth 2 -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
-          find "openwrt/bin/packages/${{ matrix.pkgarch }}/" \
-            -maxdepth 2 -type f -name '*amneziawg*' -exec cp {} awgrelease \; 2>/dev/null || true
+          ZIP_NAME="OpenWRT-awg-2-${{ inputs.openwrt_version }}-${{ matrix.target }}-${{ matrix.subtarget }}-${{ matrix.pkgarch }}.zip"
 
-          ZIP="OpenWRT-awg-2-${VER}-${{ matrix.target }}-${{ matrix.subtarget }}-${{ matrix.pkgarch }}.zip"
+          if [ -n "$(ls -A awgrelease)" ]; then
+            zip -r "$ZIP_NAME" awgrelease
 
-          zip -r "$ZIP" awgrelease
+            gh release create "${{ inputs.openwrt_version }}" \
+              --title "OpenWRT AWG-2.0 - ${{ inputs.openwrt_version }}" \
+              --notes "AmneziaWG 2.0 OpenWRT build" \
+              --repo "${{ github.repository }}" || true
 
-          gh release create "$VER" --notes "AWG build" --repo "${{ github.repository }}" || true
-          gh release upload "$VER" "$ZIP" --clobber --repo "${{ github.repository }}"
+            gh release upload "${{ inputs.openwrt_version }}" "$ZIP_NAME" --clobber --repo "${{ github.repository }}"
+          else
+            echo "Пакеты не найдены, ZIP не создан"
+          fi
