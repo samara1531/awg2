@@ -72,40 +72,41 @@ jobs:
         run: |
           ORIGINAL='${{ needs.generate-matrix.outputs.matrix }}'
 
-          # Если SNAPSHOT — собираем всё
+          # SNAPSHOT — собираем всё
           if [ "${{ inputs.openwrt_version }}" = "SNAPSHOT" ]; then
             echo "matrix=$ORIGINAL" >> $GITHUB_OUTPUT
             echo "SNAPSHOT → build all targets"
             exit 0
           fi
 
-          # Получаем список уже загруженных ZIP-ов
+          # Получаем список уже загруженных ZIP-ов одним запросом
           mapfile -t EXISTING < <(
-            curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            curl -fsS -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.openwrt_version }}" \
-            | jq -r '.assets[].name' 2>/dev/null || true
+              | jq -r '.assets[].name' 2>/dev/null || true
           )
 
-          # Если релиз не найден или пустой — собираем всё
+          # Если ничего не получили — собираем всё (на всякий случай)
           if [ ${#EXISTING[@]} -eq 0 ]; then
             echo "matrix=$ORIGINAL" >> $GITHUB_OUTPUT
-            echo "No existing assets → build all targets"
+            echo "No existing ZIPs found → build all targets"
             exit 0
           fi
 
-          # ВАЖНО: используем $args (строго маленькая буква!)
-          FILTERED=$(jq -c --args '
-            .include |= [ .[] | select(
+          # === САМЫЙ НАДЁЖНЫЙ СПОСОБ — через --argjson ===
+          FILTERED=$(jq -c --argjson existing "$(printf '%s\n' "${EXISTING[@]}" | jq -R . | jq -s .)" '
+            .include |= map(select(
               "OpenWRT-awg-2-${{ inputs.openwrt_version }}-\(.target)-\(.subtarget)-\(.pkgarch).zip" as $need
-              | all($args[]; . != $need)
-            )]
-          ' -- "${EXISTING[@]}" <<< "$ORIGINAL")
+              | ($existing | index($need)) == null
+            ))
+          ' <<< "$ORIGINAL")
 
-          # Защита от падения
+          # Если по какой-то причине jq вернул пустоту — возвращаем пустую матрицу
           [ -z "$FILTERED" ] && FILTERED='{"include":[]}'
 
           echo "matrix=$FILTERED" >> $GITHUB_OUTPUT
-          echo "Осталось собрать: $(jq '.include | length' <<< "$FILTERED") целей"
+          COUNT=$(jq '.include | length' <<< "$FILTERED")
+          echo "Осталось собрать: $COUNT целей"
 
   # 3. Сама сборка
   build-awg:
