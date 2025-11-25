@@ -69,6 +69,7 @@ jobs:
 
           git add saved_release_metadata.txt
           git commit -m "Update saved release metadata with tag and date" || echo "No changes to commit"
+          git pull --rebase origin main || true
           git push
 
   build-awg:
