@@ -38,39 +38,54 @@ jobs:
             echo "Saved Tag: $SAVED_TAG, Saved Date: $SAVED_DATE"
             echo "Latest Tag: $CURRENT_TAG"
 
-            if [ "$SAVED_TAG" == "$CURRENT_TAG" ]; then
+            if [ "$SAVED_TAG" = "$CURRENT_TAG" ]; then
               SAVED_EPOCH=$(date -d "$SAVED_DATE" +%s)
-              CURRENT_EPOCH=$(date +%s)
-              AGE_HOURS=$(( (CURRENT_EPOCH - SAVED_EPOCH) / 3600 ))
+              NOW_EPOCH=$(date +%s)
+
+              AGE_HOURS=$(( (NOW_EPOCH - SAVED_EPOCH) / 3600 ))
 
               if (( AGE_HOURS <= 75 )); then
-                echo "Tag matches and is not older than 75 hours — build allowed."
+                echo "Tag same & age <= 75 hours -> CAN BUILD"
                 CAN_BUILD="true"
               else
-                echo "Tag matches but older than 75 hours — skipping build."
+                echo "Tag same but older than 75 hours -> NO BUILD"
               fi
             else
-              echo "Tag changed — first run, saving new tag without building."
+              echo "New tag detected -> first detection, record it"
             fi
+
           else
-            echo "No saved release metadata found — first run, saving new tag."
+            echo "No metadata file -> first detection"
           fi
 
           echo "can_build=$CAN_BUILD" >> $GITHUB_OUTPUT
 
-      - name: Save release tag and current date
+      - name: Save release tag and current date (only on NEW tag)
+        if: steps.check_metadata.outputs.can_build != 'true'
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+          SAVED_TAG=""
+          if [ -f saved_release_metadata.txt ]; then
+            IFS=',' read SAVED_TAG SAVED_DATE < saved_release_metadata.txt
+          fi
 
           CURRENT_TAG="${{ steps.get_release.outputs.release_tag }}"
-          CURRENT_DATE=$(date "+%Y-%m-%d %H:%M:%S")
-          echo "$CURRENT_TAG,$CURRENT_DATE" > saved_release_metadata.txt
 
-          git add saved_release_metadata.txt
-          git commit -m "Update saved release metadata with tag and date" || echo "No changes to commit"
-          git pull --rebase origin main || true
-          git push
+          # Save only if NEW tag
+          if [ "$SAVED_TAG" != "$CURRENT_TAG" ]; then
+            echo "Saving new tag detection time"
+            CURRENT_DATE=$(date "+%Y-%m-%d %H:%M:%S")
+            echo "$CURRENT_TAG,$CURRENT_DATE" > saved_release_metadata.txt
+
+            git config --global user.name "GitHub Actions"
+            git config --global user.email "actions@github.com"
+
+            git add saved_release_metadata.txt
+            git commit -m "Detected new release tag: $CURRENT_TAG" || echo "No changes"
+            git pull --rebase origin main || true
+            git push
+          else
+            echo "Tag unchanged — NOT updating detection time"
+          fi
 
   build-awg:
     needs: sync-releases
