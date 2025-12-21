@@ -62,7 +62,7 @@ jobs:
 
           ASSETS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.openwrt_version }}" \
-            | jq -r '.assets[].name // empty')
+            | jq -r '.assets // [] | .[].name')
 
           echo "$ASSETS" > existing_assets.txt
           cat existing_assets.txt
