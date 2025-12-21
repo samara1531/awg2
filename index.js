@@ -7,12 +7,13 @@ if (!version) {
   process.exit(1);
 }
 
-const BASE_URL = version === 'SNAPSHOT'
-  ? 'https://downloads.openwrt.org/snapshots/targets/'
-  : `https://downloads.openwrt.org/releases/${version}/targets/`;
+const BASE_URL =
+  version === 'SNAPSHOT'
+    ? 'https://downloads.openwrt.org/snapshots/targets/'
+    : `https://downloads.openwrt.org/releases/${version}/targets/`;
 
 async function fetch(url) {
-  const { data } = await axios.get(url);
+  const { data } = await axios.get(url, { timeout: 30000 });
   return data;
 }
 
@@ -38,46 +39,17 @@ async function getSubtargets(target) {
     .map(h => h.slice(0, -1));
 }
 
-async function getPkgArchFromProfiles(target, subtarget) {
+async function getPkgArch(target, subtarget) {
   const url = `${BASE_URL}${target}/${subtarget}/profiles.json`;
 
   try {
-    const json = await fetch(url);
-    const profiles = JSON.parse(json);
+    const json = JSON.parse(await fetch(url));
 
-    for (const p of Object.values(profiles)) {
-      if (p.arch_packages) {
-        return p.arch_packages;
-      }
+    if (json.arch_packages) {
+      return json.arch_packages;
     }
-  } catch (e) {
+
     return null;
-  }
-
-  return null;
-}
-
-async function getPkgArchFromPackages(target, subtarget) {
-  const url = `${BASE_URL}${target}/${subtarget}/packages/`;
-
-  try {
-    const html = await fetch(url);
-    const $ = cheerio.load(html);
-
-    let arch = null;
-
-    $('a').each((_, el) => {
-      const name = $(el).attr('href');
-      if (!name) return;
-
-      const m = name.match(/_([a-zA-Z0-9_-]+)\.(ipk|apk)$/);
-      if (m && !name.startsWith('kernel_')) {
-        arch = m[1];
-        return false;
-      }
-    });
-
-    return arch;
   } catch (e) {
     return null;
   }
@@ -91,9 +63,7 @@ async function main() {
     const subtargets = await getSubtargets(target);
 
     for (const subtarget of subtargets) {
-      let pkgarch =
-        await getPkgArchFromProfiles(target, subtarget) ||
-        await getPkgArchFromPackages(target, subtarget);
+      const pkgarch = await getPkgArch(target, subtarget);
 
       if (!pkgarch) {
         console.error(`❌ ${target}/${subtarget}: arch not found`);
@@ -103,7 +73,7 @@ async function main() {
       matrix.push({
         target,
         subtarget,
-        pkgarch
+        pkgarch,
       });
     }
   }
