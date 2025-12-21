@@ -16,7 +16,7 @@ async function fetchHTML(url) {
 
 async function fetchJSON(url) {
   const { data } = await axios.get(url);
-  return data; // JSON уже распаршен axios'ом по Content-Type
+  return data;
 }
 
 async function getTargets() {
@@ -37,21 +37,31 @@ async function getSubtargets(target) {
     .map(href => href.slice(0, -1));
 }
 
-async function getPkgarchFromProfiles(target, subtarget) {
+async function getPkgarch(target, subtarget) {
+  // Ручная обработка для malta (profiles.json отсутствует в новых версиях)
+  if (target === 'malta') {
+    if (subtarget === 'be' || subtarget === 'le') {
+      return 'mipsel_24kc';
+    }
+    if (subtarget === 'be64' || subtarget === 'le64') {
+      return 'mips64el_octeonplus';
+    }
+  }
+
+  // Основной способ: profiles.json
   const profilesUrl = `${baseUrl}${target}/${subtarget}/profiles.json`;
   try {
     const json = await fetchJSON(profilesUrl);
-    // "arch_packages" одинаково для всех профилей в одном target/subtarget
     if (json && json.arch_packages) {
       return json.arch_packages;
     }
-    // Если по какой-то причине поля нет — fallback на старый метод
-    return await getPkgarchFallback(target, subtarget);
   } catch (err) {
-    // Если profiles.json не найден или ошибка — тоже fallback
+    // Если profiles.json нет — fallback на парсинг .ipk (для очень старых версий)
     console.warn(`profiles.json not available for ${target}/${subtarget}, falling back to .ipk parsing`);
     return await getPkgarchFallback(target, subtarget);
   }
+
+  return 'unknown';
 }
 
 async function getPkgarchFallback(target, subtarget) {
@@ -59,7 +69,6 @@ async function getPkgarchFallback(target, subtarget) {
   let pkgarch = 'unknown';
   try {
     const $ = await fetchHTML(packagesUrl);
-    // Сначала ищем любой не-kernel .ipk
     $('a').each((i, el) => {
       const name = $(el).attr('href');
       if (name && name.endsWith('.ipk') && !name.startsWith('kernel_') && !name.includes('kmod-')) {
@@ -70,7 +79,6 @@ async function getPkgarchFallback(target, subtarget) {
         }
       }
     });
-    // Если не нашли — kernel_*
     if (pkgarch === 'unknown') {
       $('a').each((i, el) => {
         const name = $(el).attr('href');
@@ -97,12 +105,11 @@ async function main() {
     for (const target of targets) {
       const subtargets = await getSubtargets(target);
       for (const subtarget of subtargets) {
-        const pkgarch = await getPkgarchFromProfiles(target, subtarget);
+        const pkgarch = await getPkgarch(target, subtarget);
         matrix.push({ target, subtarget, pkgarch });
       }
     }
 
-    // Вывод для GitHub Actions matrix
     console.log(JSON.stringify({ include: matrix }, null, 2));
   } catch (err) {
     console.error('Error:', err.message || err);
