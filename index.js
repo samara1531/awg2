@@ -1,61 +1,111 @@
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 const version = process.argv[2];
 if (!version) {
-  console.error('Usage: node index.js <openwrt_version>');
+  console.error('Version argument is required');
   process.exit(1);
 }
 
-const BASE_URL = `https://downloads.openwrt.org/releases/${version}/targets/`;
-const MATRIX = [];
+const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
+
+async function fetchHTML(url) {
+  const { data } = await axios.get(url);
+  return cheerio.load(data);
+}
 
 async function fetchJSON(url) {
+  const { data } = await axios.get(url);
+  return data; // JSON уже распаршен axios'ом по Content-Type
+}
+
+async function getTargets() {
+  const $ = await fetchHTML(baseUrl);
+  return $('table tr td.n a')
+    .map((i, el) => $(el).attr('href'))
+    .get()
+    .filter(href => href && href.endsWith('/'))
+    .map(href => href.slice(0, -1));
+}
+
+async function getSubtargets(target) {
+  const $ = await fetchHTML(`${baseUrl}${target}/`);
+  return $('table tr td.n a')
+    .map((i, el) => $(el).attr('href'))
+    .get()
+    .filter(href => href && href.endsWith('/'))
+    .map(href => href.slice(0, -1));
+}
+
+async function getPkgarchFromProfiles(target, subtarget) {
+  const profilesUrl = `${baseUrl}${target}/${subtarget}/profiles.json`;
   try {
-    const { data } = await axios.get(url, { timeout: 10000 });
-    return data;
-  } catch {
-    return null;
+    const json = await fetchJSON(profilesUrl);
+    // "arch_packages" одинаково для всех профилей в одном target/subtarget
+    if (json && json.arch_packages) {
+      return json.arch_packages;
+    }
+    // Если по какой-то причине поля нет — fallback на старый метод
+    return await getPkgarchFallback(target, subtarget);
+  } catch (err) {
+    // Если profiles.json не найден или ошибка — тоже fallback
+    console.warn(`profiles.json not available for ${target}/${subtarget}, falling back to .ipk parsing`);
+    return await getPkgarchFallback(target, subtarget);
   }
 }
 
-async function fetchTargets() {
-  const { data } = await axios.get(BASE_URL);
-  // Получаем только папки targets (на конце /)
-  return Array.from(data.matchAll(/href="([^"]+)\/"/g)).map(m => m[1]);
-}
-
-async function fetchSubtargets(target) {
-  const url = `${BASE_URL}${target}/`;
-  const { data } = await axios.get(url);
-  return Array.from(data.matchAll(/href="([^"]+)\/"/g)).map(m => m[1]);
-}
-
-async function fetchArch(target, subtarget) {
-  const url = `${BASE_URL}${target}/${subtarget}/profiles.json`;
-  const json = await fetchJSON(url);
-  return json?.arch_packages || null;
+async function getPkgarchFallback(target, subtarget) {
+  const packagesUrl = `${baseUrl}${target}/${subtarget}/packages/`;
+  let pkgarch = 'unknown';
+  try {
+    const $ = await fetchHTML(packagesUrl);
+    // Сначала ищем любой не-kernel .ipk
+    $('a').each((i, el) => {
+      const name = $(el).attr('href');
+      if (name && name.endsWith('.ipk') && !name.startsWith('kernel_') && !name.includes('kmod-')) {
+        const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
+        if (match) {
+          pkgarch = match[1];
+          return false;
+        }
+      }
+    });
+    // Если не нашли — kernel_*
+    if (pkgarch === 'unknown') {
+      $('a').each((i, el) => {
+        const name = $(el).attr('href');
+        if (name && name.endsWith('.ipk') && name.startsWith('kernel_')) {
+          const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
+          if (match) {
+            pkgarch = match[1];
+            return false;
+          }
+        }
+      });
+    }
+  } catch (err) {
+    // silent
+  }
+  return pkgarch;
 }
 
 async function main() {
   try {
-    const targets = await fetchTargets();
+    const targets = await getTargets();
+    const matrix = [];
 
     for (const target of targets) {
-      const subtargets = await fetchSubtargets(target);
+      const subtargets = await getSubtargets(target);
       for (const subtarget of subtargets) {
-        const arch = await fetchArch(target, subtarget);
-        if (arch) {
-          MATRIX.push({ target, subtarget, pkgarch: arch });
-        } else {
-          console.warn(`❌ ${target}/${subtarget}: arch not found`);
-        }
+        const pkgarch = await getPkgarchFromProfiles(target, subtarget);
+        matrix.push({ target, subtarget, pkgarch });
       }
     }
 
-    console.log(JSON.stringify({ include: MATRIX }));
-
+    // Вывод для GitHub Actions matrix
+    console.log(JSON.stringify({ include: matrix }, null, 2));
   } catch (err) {
-    console.error(err.message);
+    console.error('Error:', err.message || err);
     process.exit(1);
   }
 }
