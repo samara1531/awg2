@@ -38,7 +38,7 @@ async function getSubtargets(target) {
 }
 
 async function getPkgarch(target, subtarget) {
-  // Ручная обработка для malta (profiles.json отсутствует в новых версиях)
+  // Хардкод для malta
   if (target === 'malta') {
     if (subtarget === 'be' || subtarget === 'le') {
       return 'mipsel_24kc';
@@ -48,7 +48,6 @@ async function getPkgarch(target, subtarget) {
     }
   }
 
-  // Основной способ: profiles.json
   const profilesUrl = `${baseUrl}${target}/${subtarget}/profiles.json`;
   try {
     const json = await fetchJSON(profilesUrl);
@@ -56,7 +55,6 @@ async function getPkgarch(target, subtarget) {
       return json.arch_packages;
     }
   } catch (err) {
-    // Если profiles.json нет — fallback на парсинг .ipk (для очень старых версий)
     console.warn(`profiles.json not available for ${target}/${subtarget}, falling back to .ipk parsing`);
     return await getPkgarchFallback(target, subtarget);
   }
@@ -110,7 +108,8 @@ async function main() {
       }
     }
 
-    console.log(JSON.stringify({ include: matrix }, null, 2));
+    // Одна строка — важно для GitHub Actions!
+    console.log(JSON.stringify({ include: matrix }));
   } catch (err) {
     console.error('Error:', err.message || err);
     process.exit(1);
