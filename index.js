@@ -1,5 +1,4 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 const version = process.argv[2];
 if (!version) {
@@ -12,47 +11,37 @@ const BASE_URL =
     ? 'https://downloads.openwrt.org/snapshots/targets/'
     : `https://downloads.openwrt.org/releases/${version}/targets/`;
 
-async function fetch(url) {
+async function fetchHTML(url) {
   const { data } = await axios.get(url, { timeout: 30000 });
   return data;
 }
 
-async function getTargets() {
-  const html = await fetch(BASE_URL);
-  const $ = cheerio.load(html);
+async function fetchJSON(url) {
+  try {
+    const { data } = await axios.get(url, { timeout: 30000 });
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
 
-  return $('table tr td.n a')
-    .map((_, el) => $(el).attr('href'))
-    .get()
-    .filter(h => h && h.endsWith('/'))
-    .map(h => h.slice(0, -1));
+async function getTargets() {
+  const html = await fetchHTML(BASE_URL);
+  const matches = [...html.matchAll(/href="([^"]+)\/"/g)];
+  return matches.map(m => m[1]);
 }
 
 async function getSubtargets(target) {
-  const html = await fetch(`${BASE_URL}${target}/`);
-  const $ = cheerio.load(html);
-
-  return $('table tr td.n a')
-    .map((_, el) => $(el).attr('href'))
-    .get()
-    .filter(h => h && h.endsWith('/'))
-    .map(h => h.slice(0, -1));
+  const html = await fetchHTML(`${BASE_URL}${target}/`);
+  const matches = [...html.matchAll(/href="([^"]+)\/"/g)];
+  return matches.map(m => m[1]);
 }
 
 async function getPkgArch(target, subtarget) {
   const url = `${BASE_URL}${target}/${subtarget}/profiles.json`;
-
-  try {
-    const json = JSON.parse(await fetch(url));
-
-    if (json.arch_packages) {
-      return json.arch_packages;
-    }
-
-    return null;
-  } catch (e) {
-    return null;
-  }
+  const json = await fetchJSON(url);
+  if (!json || !json.arch_packages) return null;
+  return json.arch_packages;
 }
 
 async function main() {
@@ -61,27 +50,20 @@ async function main() {
 
   for (const target of targets) {
     const subtargets = await getSubtargets(target);
-
     for (const subtarget of subtargets) {
       const pkgarch = await getPkgArch(target, subtarget);
-
       if (!pkgarch) {
         console.error(`❌ ${target}/${subtarget}: arch not found`);
         continue;
       }
-
-      matrix.push({
-        target,
-        subtarget,
-        pkgarch,
-      });
+      matrix.push({ target, subtarget, pkgarch });
     }
   }
 
   console.log(JSON.stringify({ include: matrix }));
 }
 
-main().catch(err => {
-  console.error(err);
+main().catch(e => {
+  console.error(e);
   process.exit(1);
 });
