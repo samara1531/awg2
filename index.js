@@ -10,7 +10,7 @@ if (!version) {
 const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
 
 async function fetch(url) {
-  const { data } = await axios.get(url, { timeout: 15000 });
+  const { data } = await axios.get(url, { timeout: 20000 });
   return data;
 }
 
@@ -49,6 +49,17 @@ async function getSubtargets(target) {
     .map(h => h.slice(0, -1));
 }
 
+/* ---------- ARCH FROM PROFILES.JSON ---------- */
+
+function archFromProfiles(json) {
+  if (!json || !json.profiles) return null;
+
+  const profiles = Object.values(json.profiles);
+  if (!profiles.length) return null;
+
+  return profiles[0].arch_packages || null;
+}
+
 /* ---------- ARCH DETECTION ---------- */
 
 async function getPkgArch(target, subtarget) {
@@ -56,39 +67,39 @@ async function getPkgArch(target, subtarget) {
   let json = await fetchJSON(
     `${baseUrl}${target}/${subtarget}/profiles.json`
   );
-  if (json?.arch_packages) return json.arch_packages;
+  let arch = archFromProfiles(json);
+  if (arch) return arch;
 
-  // 2️⃣ target-level profiles.json (ВАЖНО для apm821xx и legacy)
+  // 2️⃣ target-level profiles.json
   json = await fetchJSON(
     `${baseUrl}${target}/profiles.json`
   );
-  if (json?.arch_packages) return json.arch_packages;
+  arch = archFromProfiles(json);
+  if (arch) return arch;
 
-  // 3️⃣ packages directory (ipk / apk)
+  // 3️⃣ packages dir (ipk / apk)
   try {
     const $ = await fetchHTML(
       `${baseUrl}${target}/${subtarget}/packages/`
     );
 
-    let arch = null;
+    let found = null;
     $('a').each((_, el) => {
       const name = $(el).attr('href');
       if (!name) return;
 
-      // ipk / apk
       if (name.endsWith('.ipk') || name.endsWith('.apk')) {
         const m = name.match(/_([a-zA-Z0-9_-]+)\.(ipk|apk)$/);
         if (m) {
-          arch = m[1];
-          return false; // break
+          found = m[1];
+          return false;
         }
       }
     });
 
-    if (arch) return arch;
+    if (found) return found;
   } catch {}
 
-  // 4️⃣ fail
   return 'unknown';
 }
 
@@ -105,21 +116,15 @@ async function main() {
       for (const subtarget of subtargets) {
         const pkgarch = await getPkgArch(target, subtarget);
 
-        // ❗ unknown — НЕ собираем
         if (pkgarch === 'unknown') {
           console.warn(`Skipping ${target}/${subtarget} (unknown arch)`);
           continue;
         }
 
-        matrix.push({
-          target,
-          subtarget,
-          pkgarch
-        });
+        matrix.push({ target, subtarget, pkgarch });
       }
     }
 
-    // GitHub Actions matrix output
     console.log(JSON.stringify({ include: matrix }));
   } catch (err) {
     console.error(err);
