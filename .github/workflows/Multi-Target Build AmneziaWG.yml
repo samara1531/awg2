@@ -229,7 +229,7 @@ jobs:
 
             gh release create "${{ inputs.openwrt_version }}" \
               --title "OpenWRT AWG-2.0 - ${{ inputs.openwrt_version }}" \
-              --notes "AmneziaWG 2.0 OpenWRT build" \
+              --notes "AmneziaWG 2.0 OpenWRT" \
               --repo "${{ github.repository }}" || true
 
             gh release upload "${{ inputs.openwrt_version }}" "$ZIP_NAME" --clobber --repo "${{ github.repository }}"
