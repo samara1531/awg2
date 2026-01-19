@@ -2,7 +2,7 @@
 set -e
 
 REPO="samara1531/awg2"
-API="https://api.github.com/repos/$REPO/releases"
+API="https://api.github.com/repos/$REPO/releases?per_page=100"
 TMP="/tmp/awg"
 
 mkdir -p "$TMP"
