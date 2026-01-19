@@ -22,7 +22,7 @@ echo "[*] Target: $TARGET"
 echo "[*] Fetching releases info..."
 wget -qO releases.json "$API"
 
-NUM_RELEASES="$(jsonfilter -i releases.json -e 'length(@)')"
+NUM_RELEASES="$(jsonfilter -i releases.json -e '@.length')"
 
 ZIP_URL=""
 i=0
