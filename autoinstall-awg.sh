@@ -77,7 +77,6 @@ echo "[*] Installing packages via $PM"
 # --- install packages ---
 for pkg in \
   amneziawg-tools \
-  amneziawg-go \
   kmod-amneziawg \
   luci-proto-amneziawg \
   luci-i18n-amneziawg-ru
