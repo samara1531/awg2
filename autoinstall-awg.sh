@@ -22,24 +22,22 @@ echo "[*] Target: $TARGET"
 echo "[*] Fetching releases info..."
 wget -qO releases.json "$API"
 
-# --- find release index by tag_name ---
-REL_INDEX="$(jsonfilter -i releases.json -e '@[*].tag_name' \
-  | nl -w1 -s: \
-  | grep ":$REL$" \
-  | cut -d: -f1)"
+NUM_RELEASES="$(jsonfilter -i releases.json -e '@#')"
 
-if [ -z "$REL_INDEX" ]; then
-  echo "❌ Release $REL not found"
-  exit 1
-fi
-
-REL_INDEX=$((REL_INDEX - 1))
-
-# --- find matching asset ---
-ZIP_URL="$(jsonfilter -i releases.json \
-  -e "@[$REL_INDEX].assets[*].browser_download_url" \
-  | grep "$TARGET_DASH" \
-  | head -n1)"
+ZIP_URL=""
+i=0
+while [ $i -lt $NUM_RELEASES ]; do
+  TAG="$(jsonfilter -i releases.json -e "@[$i].tag_name")"
+  if [ "$TAG" = "$REL" ]; then
+    ASSETS="$(jsonfilter -i releases.json -e "@[$i].assets[*].browser_download_url")"
+    # ищем URL с нашим target
+    for URL in $ASSETS; do
+      echo "$URL" | grep -q "$TARGET_DASH" && ZIP_URL="$URL" && break
+    done
+    break
+  fi
+  i=$((i+1))
+done
 
 if [ -z "$ZIP_URL" ]; then
   echo "❌ No matching build for $REL / $TARGET"
@@ -79,22 +77,15 @@ fi
 
 echo "[*] Installing packages via $PM"
 
-# --- install packages (ignore version suffix) ---
-for pkg in \
-  amneziawg-tools \
-  kmod-amneziawg \
-  luci-proto-amneziawg \
-  luci-i18n-amneziawg-ru
-do
+# --- install packages ignoring version ---
+for pkg in amneziawg-tools kmod-amneziawg luci-proto-amneziawg luci-i18n-amneziawg-ru; do
   FILE="$(ls 2>/dev/null | grep "^$pkg-.*\.$PM$" | head -n1)"
-
   if [ -z "$FILE" ]; then
     echo "⚠ $pkg not found"
     continue
   fi
 
   echo "[+] Installing $FILE"
-
   if [ "$PM" = "apk" ]; then
     apk add --allow-untrusted "./$FILE"
   else
