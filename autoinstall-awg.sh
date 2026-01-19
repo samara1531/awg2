@@ -8,12 +8,13 @@ API="https://api.github.com/repos/$REPO/releases"
 . /etc/openwrt_release
 
 REL="$DISTRIB_RELEASE"
-TARGET="$DISTRIB_TARGET"
+TARGET="$DISTRIB_TARGET"      # например: rockchip/armv8
 
 echo "[*] OpenWrt release: $REL"
 echo "[*] Target: $TARGET"
 
 TMP="/tmp/awg"
+rm -rf "$TMP"
 mkdir -p "$TMP"
 cd "$TMP"
 
@@ -21,12 +22,10 @@ cd "$TMP"
 echo "[*] Fetching releases info..."
 wget -qO releases.json "$API"
 
-# 3. Extract download URL
-ZIP_URL="$(grep -A50 "\"tag_name\": \"$REL\"" releases.json \
-  | grep "browser_download_url" \
-  | grep "-$TARGET-" \
-  | head -n1 \
-  | sed 's/.*"browser_download_url": "\(.*\)".*/\1/')"
+# 3. Extract download URL (BusyBox-safe)
+ZIP_URL="$(jsonfilter -i releases.json \
+  -e '@.[][@.tag_name="'"$REL"'"].assets[@.name~"'"$(echo "$TARGET" | tr / -)"'"].browser_download_url' \
+  | head -n1)"
 
 if [ -z "$ZIP_URL" ]; then
   echo "❌ No matching build for $REL / $TARGET"
@@ -56,24 +55,31 @@ cd awgrelease || {
 
 # 6. Detect package manager
 if command -v apk >/dev/null 2>&1; then
-  PM=apk
+  PM="apk"
+  EXT="apk"
 elif command -v opkg >/dev/null 2>&1; then
-  PM=opkg
+  PM="opkg"
+  EXT="ipk"
 else
-  echo "❌ No package manager"
+  echo "❌ No package manager found"
   exit 1
 fi
 
 echo "[*] Installing packages via $PM"
 
-# 7. Install packages ignoring version suffix
-for pkg in amneziawg-tools kmod-amneziawg luci-proto-amneziawg luci-i18n-amneziawg-ru; do
-  FILE="$(ls | grep "^$pkg-.*\.$PM$" | head -n1)"
+# 7. Install packages ignoring version / kernel suffix
+for pkg in \
+  amneziawg-tools \
+  kmod-amneziawg \
+  luci-proto-amneziawg \
+  luci-i18n-amneziawg-ru
+do
+  FILE="$(ls 2>/dev/null | grep "^$pkg-.*\.$EXT$" | head -n1)"
 
-  [ -z "$FILE" ] && {
+  if [ -z "$FILE" ]; then
     echo "⚠ $pkg not found"
     continue
-  }
+  fi
 
   echo "[+] Installing $FILE"
 
