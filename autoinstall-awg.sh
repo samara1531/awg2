@@ -3,52 +3,59 @@ set -e
 
 REPO="samara1531/awg2"
 API="https://api.github.com/repos/$REPO/releases"
-
 TMP="/tmp/awg"
 mkdir -p "$TMP"
 cd "$TMP"
 
 # --- OpenWrt info ---
 . /etc/openwrt_release
-
 REL="$DISTRIB_RELEASE"
 TARGET="$DISTRIB_TARGET"
 TARGET_DASH="$(echo "$TARGET" | tr '/' '-')"
-
 echo "[*] OpenWrt release: $REL"
 echo "[*] Target: $TARGET"
 
 # --- fetch releases ---
 echo "[*] Fetching releases info..."
-wget -qO releases.json "$API"
+wget -qO releases.json "$API" || {
+  echo "❌ Не удалось скачать информацию о релизах"
+  exit 1
+}
 
-NUM_RELEASES="$(jsonfilter -i releases.json -e '@.length')"
-
+# --- Поиск подходящего ZIP через grep (без jsonfilter) ---
 ZIP_URL=""
-i=0
-while [ $i -lt $NUM_RELEASES ]; do
-  TAG="$(jsonfilter -i releases.json -e "@[$i].tag_name")"
-  if [ "$TAG" = "$REL" ]; then
-    ASSETS="$(jsonfilter -i releases.json -e "@[$i].assets[*].browser_download_url")"
-    # ищем URL с нашим target
-    for URL in $ASSETS; do
-      echo "$URL" | grep -q "$TARGET_DASH" && ZIP_URL="$URL" && break
-    done
-    break
-  fi
-  i=$((i+1))
-done
+# Ищем строку с нужным тегом и потом ищем внутри ссылку с нашим target
+RELEASE_BLOCK=$(grep -A 60 "\"tag_name\": \"$REL\"" releases.json || true)
+
+if [ -n "$RELEASE_BLOCK" ]; then
+  ASSETS=$(echo "$RELEASE_BLOCK" | grep -o 'https://[^"]*\.zip' | tr '\n' ' ' || true)
+  for URL in $ASSETS; do
+    if echo "$URL" | grep -q "$TARGET_DASH"; then
+      ZIP_URL="$URL"
+      break
+    fi
+  done
+fi
+
+if [ -z "$ZIP_URL" ]; then
+  # Альтернативный поиск — просто по строке target (на случай если структура JSON другая)
+  ZIP_URL=$(grep -o 'https://[^"]*'"$TARGET_DASH"'[^"]*\.zip' releases.json | head -n1 || true)
+fi
 
 if [ -z "$ZIP_URL" ]; then
   echo "❌ No matching build for $REL / $TARGET"
+  echo "Попробуй посмотреть вручную: https://github.com/$REPO/releases/tag/$REL"
   exit 1
 fi
 
 echo "[+] Found zip:"
-echo "    $ZIP_URL"
+echo " $ZIP_URL"
 
 # --- download ---
-wget -O awg.zip "$ZIP_URL"
+wget -O awg.zip "$ZIP_URL" || {
+  echo "❌ Не удалось скачать ZIP"
+  exit 1
+}
 
 # --- unzip ---
 if command -v unzip >/dev/null 2>&1; then
@@ -57,6 +64,7 @@ elif busybox unzip >/dev/null 2>&1; then
   busybox unzip -o awg.zip
 else
   echo "❌ unzip not available"
+  echo "Установи: opkg update && opkg install unzip"
   exit 1
 fi
 
@@ -84,7 +92,6 @@ for pkg in amneziawg-tools kmod-amneziawg luci-proto-amneziawg luci-i18n-amnezia
     echo "⚠ $pkg not found"
     continue
   fi
-
   echo "[+] Installing $FILE"
   if [ "$PM" = "apk" ]; then
     apk add --allow-untrusted "./$FILE"
