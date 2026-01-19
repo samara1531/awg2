@@ -4,11 +4,12 @@ set -e
 REPO="samara1531/awg2"
 API="https://api.github.com/repos/$REPO/releases"
 
-# 1. OpenWrt info
+# OpenWrt info
 . /etc/openwrt_release
 
 REL="$DISTRIB_RELEASE"
-TARGET="$DISTRIB_TARGET"      # например: rockchip/armv8
+TARGET="$DISTRIB_TARGET"              # rockchip/armv8
+TARGET_DASH="$(echo "$TARGET" | tr / -)"
 
 echo "[*] OpenWrt release: $REL"
 echo "[*] Target: $TARGET"
@@ -18,13 +19,13 @@ rm -rf "$TMP"
 mkdir -p "$TMP"
 cd "$TMP"
 
-# 2. Fetch releases
 echo "[*] Fetching releases info..."
 wget -qO releases.json "$API"
 
-# 3. Extract download URL (BusyBox-safe)
+# --- JSONFILTER ONLY ---
 ZIP_URL="$(jsonfilter -i releases.json \
-  -e '@.[][@.tag_name="'"$REL"'"].assets[@.name~"'"$(echo "$TARGET" | tr / -)"'"].browser_download_url' \
+  -e '@.[][@.tag_name="'"$REL"'"].assets[*].browser_download_url' \
+  | grep "$TARGET_DASH" \
   | head -n1)"
 
 if [ -z "$ZIP_URL" ]; then
@@ -35,17 +36,13 @@ fi
 echo "[+] Found zip:"
 echo "    $ZIP_URL"
 
-# 4. Download zip
 wget -O awg.zip "$ZIP_URL"
 
-# 5. Extract
+# Extract
 if command -v unzip >/dev/null 2>&1; then
   unzip -o awg.zip
-elif busybox unzip >/dev/null 2>&1; then
-  busybox unzip -o awg.zip
 else
-  echo "❌ unzip not available"
-  exit 1
+  busybox unzip -o awg.zip
 fi
 
 cd awgrelease || {
@@ -53,7 +50,7 @@ cd awgrelease || {
   exit 1
 }
 
-# 6. Detect package manager
+# Detect package manager
 if command -v apk >/dev/null 2>&1; then
   PM="apk"
   EXT="apk"
@@ -67,19 +64,18 @@ fi
 
 echo "[*] Installing packages via $PM"
 
-# 7. Install packages ignoring version / kernel suffix
 for pkg in \
   amneziawg-tools \
   kmod-amneziawg \
   luci-proto-amneziawg \
   luci-i18n-amneziawg-ru
 do
-  FILE="$(ls 2>/dev/null | grep "^$pkg-.*\.$EXT$" | head -n1)"
+  FILE="$(ls | grep "^$pkg-.*\.$EXT$" | head -n1)"
 
-  if [ -z "$FILE" ]; then
+  [ -z "$FILE" ] && {
     echo "⚠ $pkg not found"
     continue
-  fi
+  }
 
   echo "[+] Installing $FILE"
 
