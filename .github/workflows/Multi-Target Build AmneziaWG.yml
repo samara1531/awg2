@@ -192,7 +192,7 @@ jobs:
               cd openwrt
               set +e
 
-              # Сборка основных пакетов
+              # Основные пакеты
               make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
               KMOD_STATUS=$?
 
@@ -202,6 +202,7 @@ jobs:
               make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
               LUCI_STATUS=$?
 
+              # Go-пакет, пропускаем для проблемных таргетов
               if [ "$compile_go" = "true" ]; then
                 case "${{ matrix.target }}_${{ matrix.subtarget }}" in
                   microchipsw_*|lan969x_*|*_aarch64_cortex-a53)
@@ -214,13 +215,13 @@ jobs:
                 esac
               fi
 
-              # Проверяем статусы основных пакетов
+              # Проверка статусов только основных пакетов
               if [ $KMOD_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ]; then
                 echo "One or more REQUIRED packages failed"
                 exit 1
               fi
 
-              echo "All required packages built successfully"
+              echo "All required packages built successfully — Go errors ignored"
 
       - name: Upload release assets
         env:
