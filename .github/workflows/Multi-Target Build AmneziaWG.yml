@@ -187,34 +187,28 @@ jobs:
           compile_go: ${{ inputs.compile_go }}
         run: |
           cd openwrt
-        
-          # Отключаем go для проблемного target'а
-         if grep -qE 'CONFIG_TARGET_microchipsw(_lan969x)?=y' .config; then
-            compile_go="false"
-            echo "microchipsw/lan969x detected → skipping amneziawg-go compilation"
-         fi
-        
           set +e
+
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           KMOD_STATUS=$?
+
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
           TOOLS_STATUS=$?
+
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           LUCI_STATUS=$?
-        
+
           if [ "$compile_go" = "true" ]; then
-            echo "Building amneziawg-go..."
             make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
-              || echo "amneziawg-go compilation failed — continuing anyway (non-critical)"
-          else
-            echo "amneziawg-go skipped (compile_go=false)"
+              || echo "amneziawg-go failed — continuing anyway"
           fi
-        
-          if [ $KMOD_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ]; then
-            echo "!!! One or more REQUIRED AWG packages failed to build !!!"
+
+          if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
+            echo "One or more REQUIRED packages failed"
             exit 1
           fi
-          echo "All required AWG packages built successfully"
+
+          echo "All required packages built successfully"
 
       - name: Upload release assets
         env:
