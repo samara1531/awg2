@@ -185,56 +185,36 @@ jobs:
       - name: Compile AWG packages
         env:
           compile_go: ${{ inputs.compile_go }}
-          pkgarch: ${{ matrix.pkgarch }}
         run: |
-          cd openwrt
-          set +e
+              cd openwrt
+              set +e
 
-          make defconfig
+              # гарантируем неинтерактивную конфигурацию
+              make defconfig
 
-          echo "== Build kmod =="
-          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-          KMOD_STATUS=$?
+              # REQUIRED packages
+              make package/kmod-amneziawg/compile -j$(nproc)
+              KMOD_STATUS=$?
 
-          echo "== Build tools =="
-          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
-          TOOLS_STATUS=$?
+              make package/amneziawg-tools/compile -j$(nproc)
+              TOOLS_STATUS=$?
 
-          echo "== Build luci =="
-          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-          LUCI_STATUS=$?
+              make package/luci-proto-amneziawg/compile -j$(nproc)
+              LUCI_STATUS=$?
 
-          echo "== Optional: build go =="
-          if [ "$compile_go" = "true" ]; then
-            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
-              || echo "Skipping amneziawg-go for this target/subtarget"
-          fi
+              # OPTIONAL go package
+              if [ "$compile_go" = "true" ]; then
+                make package/amneziawg-go/compile -j$(nproc) \
+                  || echo "Skipping amneziawg-go for this target/subtarget"
+              fi
 
-          echo "== Verify REQUIRED packages exist (ipk/apk) =="
+              # fail only if REQUIRED failed
+              if [ $KMOD_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ]; then
+                echo "One or more REQUIRED packages failed"
+                exit 1
+              fi
 
-          pkg_found() {
-            find "bin/packages/${pkgarch}/" \
-              \( -name "*$1*.ipk" -o -name "*$1*.apk" \) \
-              2>/dev/null | grep -q .
-          }
-
-          REQUIRED_FAIL=0
-
-          for pkg in kmod-amneziawg amneziawg-tools luci-proto-amneziawg; do
-            if pkg_found "$pkg"; then
-              echo "OK: $pkg found"
-            else
-              echo "FAIL: $pkg NOT found"
-              REQUIRED_FAIL=1
-            fi
-          done
-
-          if [ "$REQUIRED_FAIL" -ne 0 ]; then
-            echo "One or more REQUIRED packages failed"
-            exit 1
-          fi
-
-          echo "All required packages built successfully"
+              echo "All required packages built successfully"
 
       - name: Upload release assets
         env:
