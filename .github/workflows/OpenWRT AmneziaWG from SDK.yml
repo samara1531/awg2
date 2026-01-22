@@ -111,7 +111,6 @@ jobs:
       run: |
         set -e -x
         cd openwrt
-        export IGNORE_ERRORS=1
         if [ "${{ env.compile_kmod }}" = "true" ]; then
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j $(nproc)
         fi
