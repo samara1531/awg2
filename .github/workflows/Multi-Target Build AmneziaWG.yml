@@ -231,7 +231,7 @@ jobs:
           mkdir -p awgrelease
 
           cp -f openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages/kmod-amneziawg* awgrelease/ 2>/dev/null || true
-          find "openwrt/bin/packages/${{ matrix.pkgarch }}/" -type f -name '*amneziawg*' -exec cp {} awgrelease/ \;
+          find "openwrt/bin/packages/${{ matrix.pkgarch }}/" -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
           ZIP_NAME="OpenWRT-awg-2-${{ inputs.openwrt_version }}-${{ matrix.target }}-${{ matrix.subtarget }}-${{ matrix.pkgarch }}.zip"
 
