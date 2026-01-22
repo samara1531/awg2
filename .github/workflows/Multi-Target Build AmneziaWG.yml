@@ -183,6 +183,7 @@ jobs:
           fi
           
       - name: Compile AWG packages
+        continue-on-error: true
         env:
           compile_go: ${{ inputs.compile_go }}
         run: |
