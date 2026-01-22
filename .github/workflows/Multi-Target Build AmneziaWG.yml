@@ -202,9 +202,10 @@ jobs:
               LUCI_STATUS=$?
 
               if [ "$compile_go" = "true" ]; then
-                make package/amneziawg-go/{clean,download,prepare,compile} \
-                  IGNORE_ERRORS=1 -j$(nproc) \
-                  || echo "amneziawg-go failed — continuing anyway"
+                echo "== Building OPTIONAL amneziawg-go =="
+                (
+                  make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc)
+                ) || echo "::warning::amneziawg-go failed — skipping"
               fi
 
               if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
