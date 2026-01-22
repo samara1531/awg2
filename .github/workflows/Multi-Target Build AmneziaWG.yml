@@ -187,6 +187,13 @@ jobs:
           compile_go: ${{ inputs.compile_go }}
         run: |
           cd openwrt
+
+          # Отключаем go для проблемного target'а
+          if grep -qE 'CONFIG_TARGET_microchipsw(_lan969x)?=y' .config; then
+            compile_go="false"
+            echo "microchipsw/lan969x detected → skipping amneziawg-go compilation"
+          fi
+
           set +e
 
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
@@ -199,16 +206,19 @@ jobs:
           LUCI_STATUS=$?
 
           if [ "$compile_go" = "true" ]; then
+            echo "Building amneziawg-go..."
             make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
-              || echo "amneziawg-go failed — continuing anyway"
+              || echo "amneziawg-go compilation failed — continuing anyway (non-critical)"
+          else
+            echo "amneziawg-go skipped (compile_go=false)"
           fi
 
-          if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
-            echo "One or more REQUIRED packages failed"
+          if [ $KMOD_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ]; then
+            echo "!!! One or more REQUIRED AWG packages failed to build !!!"
             exit 1
           fi
 
-          echo "All required packages built successfully"
+          echo "All required AWG packages built successfully"
 
       - name: Upload release assets
         env:
@@ -216,11 +226,9 @@ jobs:
         run: |
           mkdir -p awgrelease
 
-          # apk (24.10+, snapshots)
           find "openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages" \
             -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
-          # ipk (старые релизы)
           find "openwrt/bin/packages" \
             -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
@@ -234,7 +242,9 @@ jobs:
               --notes "AmneziaWG 2.0 OpenWRT" \
               --repo "${{ github.repository }}" || true
 
-            gh release upload "${{ inputs.openwrt_version }}" "$ZIP_NAME" --clobber --repo "${{ github.repository }}"
+            gh release upload "${{ inputs.openwrt_version }}" "$ZIP_NAME" \
+              --clobber \
+              --repo "${{ github.repository }}"
           else
             echo "Пакеты не найдены, ZIP не создан"
           fi
