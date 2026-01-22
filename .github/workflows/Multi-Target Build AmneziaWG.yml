@@ -189,31 +189,40 @@ jobs:
         env:
           compile_go: ${{ inputs.compile_go }}
         run: |
-              cd openwrt
-              set +e
+          cd openwrt
+          set +e
 
-              make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-              KMOD_STATUS=$?
+          TARGET="${{ matrix.target }}"
+          PKGARCH="${{ matrix.pkgarch }}"
 
-              make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
-              TOOLS_STATUS=$?
+          # disable go for broken targets
+          if [ "$TARGET" = "microchipsw" ] || \
+             [ "$TARGET" = "lan969x" ] || \
+             { [ "$TARGET" = "microchipsw" ] && [ "$PKGARCH" = "aarch64_cortex-a53" ]; }; then
+            compile_go=false
+            echo "::warning::Go build disabled for $TARGET ($PKGARCH)"
+          fi
 
-              make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-              LUCI_STATUS=$?
+          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          KMOD_STATUS=$?
 
-              if [ "$compile_go" = "true" ]; then
-                echo "== Building OPTIONAL amneziawg-go =="
-                (
-                  make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc)
-                ) || echo "::warning::amneziawg-go failed — skipping"
-              fi
+          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+          TOOLS_STATUS=$?
 
-              if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
-                echo "One or more REQUIRED packages failed"
-                exit 1
-              fi
+          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+          LUCI_STATUS=$?
 
-              echo "All required packages built successfully"
+          if [ "$compile_go" = "true" ]; then
+            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
+              || echo "::warning::amneziawg-go failed — skipping"
+          fi
+
+          if [ $KMOD_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ]; then
+            echo "One or more REQUIRED packages failed"
+            exit 1
+          fi
+
+          echo "All required packages built successfully"
 
       - name: Upload release assets
         env:
