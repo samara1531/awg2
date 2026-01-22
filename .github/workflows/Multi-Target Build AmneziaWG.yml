@@ -182,11 +182,11 @@ jobs:
             cp -r packages/lang/golang openwrt/feeds/packages/lang
           fi
           
-        - name: Compile AWG packages
-          continue-on-error: true
-          env:
-            compile_go: ${{ inputs.compile_go }}
-          run: |
+      - name: Compile AWG packages
+        continue-on-error: true
+        env:
+          compile_go: ${{ inputs.compile_go }}
+        run: |
               cd openwrt
               
               # Отключаем go для проблемного target'а
