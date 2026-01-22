@@ -192,8 +192,6 @@ jobs:
               cd openwrt
               set +e
 
-              export IGNORE_ERRORS=1
-
               make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
               KMOD_STATUS=$?
 
@@ -204,7 +202,8 @@ jobs:
               LUCI_STATUS=$?
 
               if [ "$compile_go" = "true" ]; then
-                make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
+                make package/amneziawg-go/{clean,download,prepare,compile} \
+                  IGNORE_ERRORS=1 -j$(nproc) \
                   || echo "amneziawg-go failed — continuing anyway"
               fi
 
