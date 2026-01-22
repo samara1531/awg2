@@ -190,6 +190,8 @@ jobs:
           cd openwrt
           set +e
 
+          make defconfig
+
           echo "== Build kmod =="
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           KMOD_STATUS=$?
