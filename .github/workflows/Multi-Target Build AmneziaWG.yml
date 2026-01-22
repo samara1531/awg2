@@ -182,8 +182,10 @@ jobs:
             cp -r packages/lang/golang openwrt/feeds/packages/lang
           fi
           
+          ./openwrt/scripts/feeds install -a
+          make -C openwrt defconfig
+
       - name: Compile AWG packages
-        continue-on-error: true
         env:
           compile_go: ${{ inputs.compile_go }}
         run: |
