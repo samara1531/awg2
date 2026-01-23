@@ -152,11 +152,11 @@ jobs:
         run: |
             mkdir -p awgrelease
 
-            # kmod пакеты
-            cp -f openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages/kmod-amneziawg* awgrelease/ 2>/dev/null || true
+            find "openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages" \
+              -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
-            # все amneziawg пакеты (включая -go, -tools, luci и i18n)
-            find "openwrt/bin/packages/${{ matrix.pkgarch }}/" -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
+            find "openwrt/bin/packages" \
+              -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
             ZIP_NAME="OpenWRT-awg-2-${{ github.event.inputs.openwrt_version }}-${{ matrix.target }}-${{ matrix.subtarget }}-${{ matrix.pkgarch }}.zip"
 
