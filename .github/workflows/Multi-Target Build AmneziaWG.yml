@@ -169,6 +169,7 @@ jobs:
           ./openwrt/scripts/feeds update -a
 
           curl -fsL "$BASE/config.buildinfo" > openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
