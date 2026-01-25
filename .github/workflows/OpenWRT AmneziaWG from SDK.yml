@@ -7,7 +7,7 @@ on:
         description: "OpenWrt version"
         type: string
         required: true
-        default: "25.12.0-rc2"
+        default: "25.12.0-rc3"
       amneziawg_version:
         description: "AmneziaWG version"
         type: string
@@ -17,17 +17,17 @@ on:
         description: "OpenWrt arch"
         type: string
         required: true
-        default: "aarch64_generic"
+        default: "aarch64_cortex-a53"
       openwrt_target:
         description: "OpenWrt target"
         type: string
         required: true
-        default: "rockchip"
+        default: "microchipsw"
       openwrt_subtarget:
         description: "OpenWrt subtarget"
         type: string
         required: true
-        default: "armv8"
+        default: "lan969x"
       compile_kmod:
         description: "Compile kernel module inplementation"
         type: boolean
@@ -90,6 +90,7 @@ jobs:
         echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
         ./openwrt/scripts/feeds update -a
         curl -fsL "$base_url/config.buildinfo" > openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
