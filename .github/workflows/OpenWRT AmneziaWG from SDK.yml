@@ -123,11 +123,8 @@ jobs:
       run: |
         set -e -x
         mkdir awgrelease
-        find "openwrt/bin/targets/${{ matrix.target }}/${{ matrix.subtarget }}/packages" \
-          -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
-
-        find "openwrt/bin/packages" \
-          -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
+        find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" -maxdepth 1 -type f -name 'kmod-amneziawg*' -exec cp {} awgrelease \;
+        find "openwrt/bin/packages/${{ inputs.openwrt_arch }}/awgopenwrt" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -exec cp {} awgrelease \;
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
