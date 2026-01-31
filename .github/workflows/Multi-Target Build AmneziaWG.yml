@@ -159,7 +159,23 @@ jobs:
           mv openwrt-sdk* openwrt
 
           echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
-          ./openwrt/scripts/feeds update -a
+
+          FEEDS=("base" "packages" "luci" "routing" "telephony" "video" "awgopenwrt")
+          for FEED in "${FEEDS[@]}"; do
+                for TRY in {1..20}; do
+                      echo "Updating feed '$FEED' (attempt $TRY)..."
+                      if [ ! -d "feeds/$FEED/.git" ]; then
+                          git clone "https://git.openwrt.org/feed/$FEED.git" "feeds/$FEED" && break
+                      else
+                          git -C "feeds/$FEED" fetch origin && git -C "feeds/$FEED" reset --hard origin/HEAD && break
+                      fi
+                      echo "Feed '$FEED' failed, retrying in 10s..."
+                      sleep 10
+                done
+          done
+
+          # Обновляем индекс и пакеты
+          ./openwrt/scripts/feeds install -a
 
           curl -fsL "$BASE/config.buildinfo" > openwrt/.config
           echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
