@@ -3,6 +3,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /work
 
+# Обновление и установка всех нужных пакетов
 RUN apt-get update && apt-get install -y \
     build-essential \
     clang \
@@ -24,10 +25,41 @@ RUN apt-get update && apt-get install -y \
     file \
     gawk \
     wget \
+    bc \
+    gettext \
+    perl \
+    perl-modules \
+    pkg-config \
+    autoconf \
+    automake \
+    libtool \
+    make \
+    gcc \
+    g++ \
+    binutils \
+    flex \
+    bison \
+    patch \
+    diffutils \
+    coreutils \
+    findutils \
+    gzip \
+    bzip2 \
+    xz-utils \
+    tar \
+    sed \
+    grep \
+    g++-multilib \
+    libc6-dev \
+    libc6-dev-i386 \
+    gcc-multilib \
+    libc6-dev-x32 \
     && rm -rf /var/lib/apt/lists/*
 
-# чтобы git не ругался в контейнере
+# Настройка git
 RUN git config --global --add safe.directory '*'
 
+# По умолчанию запускаем bash
 CMD ["/bin/bash"]
+
 
