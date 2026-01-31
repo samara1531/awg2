@@ -20,7 +20,6 @@ on:
         default: true
 
 jobs:
-  # 1. Генерируем матрицу целей
   generate-matrix:
     runs-on: ubuntu-22.04
     outputs:
@@ -72,28 +71,24 @@ jobs:
         run: |
           ORIGINAL='${{ needs.generate-matrix.outputs.matrix }}'
 
-          # SNAPSHOT — собираем всё
           if [ "${{ inputs.openwrt_version }}" = "SNAPSHOT" ]; then
             echo "matrix=$ORIGINAL" >> $GITHUB_OUTPUT
             echo "SNAPSHOT → build all targets"
             exit 0
           fi
 
-          # Получаем список уже загруженных ZIP-ов одним запросом
           mapfile -t EXISTING < <(
             curl -fsS -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.openwrt_version }}" \
               | jq -r '.assets[].name' 2>/dev/null || true
           )
 
-          # Если ничего не получили — собираем всё (на всякий случай)
           if [ ${#EXISTING[@]} -eq 0 ]; then
             echo "matrix=$ORIGINAL" >> $GITHUB_OUTPUT
             echo "No existing ZIPs found → build all targets"
             exit 0
           fi
 
-          # === САМЫЙ НАДЁЖНЫЙ СПОСОБ — через --argjson ===
           FILTERED=$(jq -c --argjson existing "$(printf '%s\n' "${EXISTING[@]}" | jq -R . | jq -s .)" '
             .include |= map(select(
               "OpenWRT-awg-2-${{ inputs.openwrt_version }}-\(.target)-\(.subtarget)-\(.pkgarch).zip" as $need
@@ -101,14 +96,12 @@ jobs:
             ))
           ' <<< "$ORIGINAL")
 
-          # Если по какой-то причине jq вернул пустоту — возвращаем пустую матрицу
           [ -z "$FILTERED" ] && FILTERED='{"include":[]}'
 
           echo "matrix=$FILTERED" >> $GITHUB_OUTPUT
           COUNT=$(jq '.include | length' <<< "$FILTERED")
           echo "Осталось собрать: $COUNT целей"
 
-  # 3. Сама сборка
   build-awg:
     needs: [generate-matrix, check-existing-assets]
     if: ${{ needs.check-existing-assets.outputs.matrix != '{"include":[]}' || inputs.openwrt_version == 'SNAPSHOT' }}
@@ -127,7 +120,7 @@ jobs:
           sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools \
             swig curl zip zstd jq unzip build-essential libelf-dev
 
-      - name: Checkout Wrt packages (для свежего golang)
+      - name: Checkout Wrt packages
         uses: actions/checkout@v4
         with:
           repository: openwrt/packages
