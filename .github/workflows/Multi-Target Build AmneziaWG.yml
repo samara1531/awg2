@@ -157,25 +157,23 @@ jobs:
           tar -xf $(basename "$sdk_url")
           rm -f *.tar.zst *.tar.xz
           mv openwrt-sdk* openwrt
+          cd openwrt
 
-          echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
-
-          FEEDS=("base" "packages" "luci" "routing" "telephony" "video" "awgopenwrt")
-          for FEED in "${FEEDS[@]}"; do
-                for TRY in {1..20}; do
-                      echo "Updating feed '$FEED' (attempt $TRY)..."
-                      if [ ! -d "feeds/$FEED/.git" ]; then
-                          git clone "https://git.openwrt.org/feed/$FEED.git" "feeds/$FEED" && break
-                      else
-                          git -C "feeds/$FEED" fetch origin && git -C "feeds/$FEED" reset --hard origin/HEAD && break
-                      fi
-                      echo "Feed '$FEED' failed, retrying in 10s..."
-                      sleep 10
-                done
+          echo "src-cpy awgopenwrt ../amneziawg" >> feeds.conf.default
+          echo "Обновляем feeds (с повторами)..."
+          MAX_ATTEMPTS=6
+          attempt=1
+          until ./scripts/feeds update -a; do
+            if [ $attempt -ge $MAX_ATTEMPTS ]; then
+              echo "Ошибка: feeds update не удалось после $MAX_ATTEMPTS попыток" >&2
+              exit 1
+            fi
+            echo "feeds update провалился (попытка $attempt/$MAX_ATTEMPTS), ждём 10–40 сек и пробуем снова..."
+            sleep $((10 + RANDOM % 31))
+            attempt=$((attempt + 1))
           done
 
-          # Обновляем индекс и пакеты
-          ./openwrt/scripts/feeds install -a
+          echo "Feeds успешно обновлены"
 
           curl -fsL "$BASE/config.buildinfo" > openwrt/.config
           echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
@@ -192,7 +190,7 @@ jobs:
             cp -r packages/lang/golang openwrt/feeds/packages/lang
           fi
           
-          ./openwrt/scripts/feeds install -a
+          ./scripts/feeds install -a
           make -C openwrt defconfig
 
       - name: Compile AWG packages
