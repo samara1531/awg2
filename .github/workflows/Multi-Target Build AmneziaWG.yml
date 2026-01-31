@@ -190,7 +190,7 @@ jobs:
             cp -r packages/lang/golang openwrt/feeds/packages/lang
           fi
           
-          ./scripts/feeds install -a
+          ./openwrt/scripts/feeds install -a
           make -C openwrt defconfig
 
       - name: Compile AWG packages
