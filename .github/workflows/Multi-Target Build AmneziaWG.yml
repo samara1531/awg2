@@ -106,19 +106,18 @@ jobs:
     needs: [generate-matrix, check-existing-assets]
     if: ${{ needs.check-existing-assets.outputs.matrix != '{"include":[]}' || inputs.openwrt_version == 'SNAPSHOT' }}
     runs-on: ubuntu-22.04
+
+    container:
+      image: ghcr.io/samara1531/openwrt-builder:22.04
+
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.check-existing-assets.outputs.matrix) }}
+
     steps:
       - uses: actions/checkout@v4
         with:
           path: amneziawg
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools \
-            swig curl zip zstd jq unzip build-essential libelf-dev
 
       - name: Checkout Wrt packages
         uses: actions/checkout@v4
