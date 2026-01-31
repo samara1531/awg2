@@ -157,13 +157,14 @@ jobs:
           tar -xf $(basename "$sdk_url")
           rm -f *.tar.zst *.tar.xz
           mv openwrt-sdk* openwrt
-          cd openwrt
 
-          echo "src-cpy awgopenwrt ../amneziawg" >> feeds.conf.default
-          echo "Обновляем feeds (с повторами)..."
+          # --- подключаем кастомный feed ---
+          echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
+
+          # --- повторное обновление feed с паузами ---
           MAX_ATTEMPTS=6
           attempt=1
-          until ./scripts/feeds update -a; do
+          until ./openwrt/scripts/feeds update -a; do
             if [ $attempt -ge $MAX_ATTEMPTS ]; then
               echo "Ошибка: feeds update не удалось после $MAX_ATTEMPTS попыток" >&2
               exit 1
@@ -172,7 +173,6 @@ jobs:
             sleep $((10 + RANDOM % 31))
             attempt=$((attempt + 1))
           done
-
           echo "Feeds успешно обновлены"
 
           curl -fsL "$BASE/config.buildinfo" > openwrt/.config
