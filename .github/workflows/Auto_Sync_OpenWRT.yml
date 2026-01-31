@@ -44,11 +44,11 @@ jobs:
 
               AGE_HOURS=$(( (NOW_EPOCH - SAVED_EPOCH) / 3600 ))
 
-              if (( AGE_HOURS <= 75 )); then
-                echo "Tag same & age <= 75 hours -> CAN BUILD"
+              if (( AGE_HOURS <= 100 )); then
+                echo "Tag same & age <= 100 hours -> CAN BUILD"
                 CAN_BUILD="true"
               else
-                echo "Tag same but older than 75 hours -> NO BUILD"
+                echo "Tag same but older than 100 hours -> NO BUILD"
               fi
             else
               echo "New tag detected -> first detection, record it"
