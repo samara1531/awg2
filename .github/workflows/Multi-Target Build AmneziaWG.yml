@@ -127,6 +127,7 @@ jobs:
           path: packages
 
       - name: Download and prepare SDK
+        shell: bash
         env:
           compile_go:  "${{ inputs.compile_go }}"
         run: |
