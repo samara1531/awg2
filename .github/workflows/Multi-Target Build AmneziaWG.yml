@@ -108,7 +108,8 @@ jobs:
     runs-on: ubuntu-22.04
 
     container:
-      image: ghcr.io/samara1531/openwrt-builder:22.04
+      image: ghcr.io/samara1531/openwrt-awg-builder:22.04
+      options: --user root
 
     strategy:
       fail-fast: false
