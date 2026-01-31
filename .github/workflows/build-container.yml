@@ -1,4 +1,4 @@
-name: Build OpenWRT AWG Builder Container
+name: Build Container
 
 on:
   workflow_dispatch:
@@ -33,3 +33,4 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/openwrt-awg-builder:22.04
             ghcr.io/${{ github.repository_owner }}/openwrt-awg-builder:latest
+
