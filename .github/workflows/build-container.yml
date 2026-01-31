@@ -1,0 +1,35 @@
+name: Build OpenWRT AWG Builder Container
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile.openwrt-awg
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.openwrt-awg
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/openwrt-awg-builder:22.04
+            ghcr.io/${{ github.repository_owner }}/openwrt-awg-builder:latest
