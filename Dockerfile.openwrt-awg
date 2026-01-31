@@ -22,9 +22,12 @@ RUN apt-get update && apt-get install -y \
     xz-utils \
     rsync \
     file \
+    gawk \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # чтобы git не ругался в контейнере
 RUN git config --global --add safe.directory '*'
 
 CMD ["/bin/bash"]
+
