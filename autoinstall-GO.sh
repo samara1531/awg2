@@ -74,7 +74,11 @@ fi
 
 echo "[*] Installing packages via $PM"
 
-# --- install packages ---
+# --- install packages with reboot check ---
+INST_GO=0
+INST_TOOLS=0
+INST_LUCI=0
+
 for pkg in \
   amneziawg-go \
   amneziawg-tools \
@@ -93,6 +97,19 @@ do
   else
     opkg install "./$FILE" || true
   fi
+
+  case "$pkg" in
+    amneziawg-go) INST_GO=1 ;;
+    amneziawg-tools) INST_TOOLS=1 ;;
+    luci-proto-amneziawg) INST_LUCI=1 ;;
+  esac
 done
 
 echo "✅ AWG install finished"
+
+# --- если все три основных пакета установлены, предупреждаем о перезагрузке ---
+if [ "$INST_GO" -eq 1 ] && [ "$INST_TOOLS" -eq 1 ] && [ "$INST_LUCI" -eq 1 ]; then
+  echo
+  echo "⚠ Для применения изменений требуется перезагрузка роутера"
+  echo "⚠ Reboot required to apply changes"
+fi
