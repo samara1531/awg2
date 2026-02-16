@@ -78,10 +78,8 @@ jobs:
             TARGET="${{ matrix.target }}"
             SUBTARGET="${{ matrix.subtarget }}"
 
-            # --- Определяем зеркала SDK ---
             if [ "$VERSION" = "SNAPSHOT" ]; then
                 MIRRORS=("https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET")
-                FEED_BRANCH="master"
             else
                 MIRRORS=(
                     "https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
@@ -90,10 +88,8 @@ jobs:
                     "https://mirror-02.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
                     "https://mirror-04.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
                 )
-                FEED_BRANCH="openwrt-$VERSION"
             fi
 
-            # --- Находим SDK ---
             sdk_url=""
             for BASE_URL in "${MIRRORS[@]}"; do
                 sdk_url=$(curl -fsSL "$BASE_URL" | grep -oP 'openwrt-sdk[^<"]+\.(tar\.zst|tar\.xz)' | head -n1)
@@ -108,35 +104,14 @@ jobs:
                 exit 1
             fi
 
+            # Скачиваем SDK с поддержкой редиректов
             curl -fsLO --location "$BASE_URL/$sdk_url"
+
             file_name=$(basename "$sdk_url")
             tar -xf "$file_name"
             rm -f *.tar.zst *.tar.xz
             mv openwrt-sdk* openwrt
 
-            # --- Добавляем локальный feed ---
-            echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
-
-            cd openwrt
-
-            # --- Настройка feed’ов под версию OpenWrt ---
-            FEEDS=("base" "packages" "luci" "routing" "telephony")
-            for f in "${FEEDS[@]}"; do
-              git -C feeds/$f remote set-url origin "https://github.com/openwrt/$f.git" || true
-              git -C feeds/$f fetch --tags
-              git -C feeds/$f checkout $FEED_BRANCH || git -C feeds/$f checkout master || true
-            done
-
-            # --- Обновление feed’ов с retry ---
-            for i in {1..3}; do
-              ./scripts/feeds update -a && break || echo "Feeds update failed, retry $i"
-              sleep 5
-            done
-
-            ./scripts/feeds install -a
-            cd ..
-
-            # --- Конфигурация пакетов AWG ---
             curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
@@ -148,10 +123,11 @@ jobs:
             echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
 
             if [ "${{ env.compile_go }}" = "true" ]; then
-              rm -rf openwrt/feeds/packages/lang/golang
+              rm -r openwrt/feeds/packages/lang/golang
               cp -r packages/lang/golang openwrt/feeds/packages/lang
             fi
 
+            ./openwrt/scripts/feeds install -a
             make -C openwrt defconfig
 
       - name: Compile AWG packages
