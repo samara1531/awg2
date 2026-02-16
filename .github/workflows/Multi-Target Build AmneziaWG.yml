@@ -200,7 +200,7 @@ jobs:
           cd openwrt
           set +e
 
-          make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j$(nproc) || true
+          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc) || true
           KMOD_STATUS=$?
 
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc) || true
