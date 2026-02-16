@@ -73,62 +73,78 @@ jobs:
         env:
           compile_go: ${{ inputs.compile_go }}
         run: |
-            set -e -x
-            VERSION="${{ github.event.inputs.openwrt_version }}"
-            TARGET="${{ matrix.target }}"
-            SUBTARGET="${{ matrix.subtarget }}"
+          set -e -x
+          VERSION="${{ github.event.inputs.openwrt_version }}"
+          TARGET="${{ matrix.target }}"
+          SUBTARGET="${{ matrix.subtarget }}"
 
-            if [ "$VERSION" = "SNAPSHOT" ]; then
-                MIRRORS=("https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET")
-            else
-                MIRRORS=(
-                    "https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
-                    "https://mirror-03.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
-                    "https://mirror-01.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
-                    "https://mirror-02.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
-                    "https://mirror-04.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
-                )
+          if [ "$VERSION" = "SNAPSHOT" ]; then
+            MIRRORS=("https://downloads.openwrt.org/snapshots/targets/$TARGET/$SUBTARGET")
+          else
+            MIRRORS=(
+              "https://downloads.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+              "https://mirror-03.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+              "https://mirror-01.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+              "https://mirror-02.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+              "https://mirror-04.infra.openwrt.org/releases/$VERSION/targets/$TARGET/$SUBTARGET"
+            )
+          fi
+
+          sdk_url=""
+          for BASE_URL in "${MIRRORS[@]}"; do
+            sdk_url=$(curl -fsSL "$BASE_URL" | grep -oP 'openwrt-sdk[^<"]+\.(tar\.zst|tar\.xz)' | head -n1)
+            if [[ -n "$sdk_url" ]]; then
+              echo "SDK found at $BASE_URL/$sdk_url"
+              break
             fi
+          done
 
-            sdk_url=""
-            for BASE_URL in "${MIRRORS[@]}"; do
-                sdk_url=$(curl -fsSL "$BASE_URL" | grep -oP 'openwrt-sdk[^<"]+\.(tar\.zst|tar\.xz)' | head -n1)
-                if [[ -n "$sdk_url" ]]; then
-                    echo "SDK found at $BASE_URL/$sdk_url"
-                    break
-                fi
-            done
+          if [[ -z "$sdk_url" ]]; then
+            echo "⚠️ SDK file not found on any mirror"
+            exit 1
+          fi
 
-            if [[ -z "$sdk_url" ]]; then
-                echo "⚠️ SDK file not found on any mirror"
-                exit 1
-            fi
+          curl -fsLO --location "$BASE_URL/$sdk_url"
+          file_name=$(basename "$sdk_url")
+          tar -xf "$file_name"
+          rm -f *.tar.zst *.tar.xz
+          mv openwrt-sdk* openwrt
 
-            # Скачиваем SDK с поддержкой редиректов
-            curl -fsLO --location "$BASE_URL/$sdk_url"
+          echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
 
-            file_name=$(basename "$sdk_url")
-            tar -xf "$file_name"
-            rm -f *.tar.zst *.tar.xz
-            mv openwrt-sdk* openwrt
+          cd openwrt
 
-            curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
-            echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
-            echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
-            echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
-            echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
+          git -C feeds/base remote set-url origin https://github.com/openwrt/openwrt.git || true
+          git -C feeds/packages remote set-url origin https://github.com/openwrt/packages.git || true
+          git -C feeds/luci remote set-url origin https://github.com/openwrt/luci.git || true
+          git -C feeds/routing remote set-url origin https://github.com/openwrt/routing.git || true
+          git -C feeds/telephony remote set-url origin https://github.com/openwrt/telephony.git || true
 
-            if [ "${{ env.compile_go }}" = "true" ]; then
-              rm -r openwrt/feeds/packages/lang/golang
-              cp -r packages/lang/golang openwrt/feeds/packages/lang
-            fi
+          for i in {1..3}; do
+            ./scripts/feeds update -a && break
+            echo "Feeds update failed, retry $i"
+            sleep 5
+          done
 
-            ./openwrt/scripts/feeds install -a
-            make -C openwrt defconfig
+          ./scripts/feeds install -a
+          cd ..
+
+          curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
+          echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
+
+          if [ "${{ env.compile_go }}" = "true" ]; then
+            rm -r openwrt/feeds/packages/lang/golang
+            cp -r packages/lang/golang openwrt/feeds/packages/lang
+          fi
+
+          make -C openwrt defconfig
 
       - name: Compile AWG packages
         env:
