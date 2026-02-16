@@ -203,14 +203,14 @@ jobs:
           make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j$(nproc) || true
           KMOD_STATUS=$?
 
-          make package/amneziawg-tools/{clean,download,prepare,compile} V=s -j$(nproc) || true
+          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc) || true
           TOOLS_STATUS=$?
 
-          make package/luci-proto-amneziawg/{clean,download,prepare,compile} V=s -j$(nproc) || true
+          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc) || true
           LUCI_STATUS=$?
 
           if [ "$compile_go" = "true" ]; then
-            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
+            make package/amneziawg-go/{clean,download,prepare,compile} V=s -j$(nproc) \
               || echo "amneziawg-go failed — continuing anyway"
           fi
 
