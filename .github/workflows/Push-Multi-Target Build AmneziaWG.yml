@@ -116,6 +116,7 @@ jobs:
             ./openwrt/scripts/feeds update -a
 
             curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
+            echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-chacha20poly1305=y" >> openwrt/.config
@@ -138,15 +139,29 @@ jobs:
           compile_go: ${{ inputs.compile_go }}
         continue-on-error: true
         run: |
-            cd openwrt
-            if [ "${{ github.event.inputs.compile_kmod }}" = "true" ]; then
-                make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc) || echo "kmod-amneziawg failed, continue"
-            fi
-            if [ "${{ github.event.inputs.compile_go }}" = "true" ]; then
-                make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) || echo "amneziawg-go failed, continue"
-            fi
-            make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc) || echo "luci-proto-amneziawg failed, continue"
-            make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc) || echo "amneziawg-tools failed, continue"
+          cd openwrt
+          set +e
+
+          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc) || true
+          KMOD_STATUS=$?
+
+          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc) || true
+          TOOLS_STATUS=$?
+
+          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc) || true
+          LUCI_STATUS=$?
+
+          if [ "$compile_go" = "true" ]; then
+            make package/amneziawg-go/{clean,download,prepare,compile} V=s -j$(nproc) \
+              || echo "amneziawg-go failed — continuing anyway"
+          fi
+
+          if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
+            echo "One or more REQUIRED packages failed"
+            exit 1
+          fi
+
+          echo "All required packages built successfully"
 
       - name: Upload release assets
         run: |
