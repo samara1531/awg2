@@ -162,7 +162,7 @@ jobs:
           echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
 
           # --- повторное обновление feed с паузами ---
-          MAX_ATTEMPTS=6
+          MAX_ATTEMPTS=10
           attempt=1
           until ./openwrt/scripts/feeds update -a; do
             if [ $attempt -ge $MAX_ATTEMPTS ]; then
