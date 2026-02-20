@@ -24,8 +24,12 @@
 -----------------------
 + **Автоустановка** (если есть пакеты под вашу версию врт)
 - сам определит вашу архитектуру, версию врт. **amneziaGO не устанавливается.**
-+ Для врт **23.05.x-25.12.x**
++ Для wrt **23.05.x-24.10.x**
+- `opkg update && opkg install unzip`
+- `wget -qO- https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh | sh"`
++ Для wrt **25.12.x**
+- `apk add unzip`
 - `wget -qO- https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh | sh`
-+ Для варианта с **GO** (сначала установите bash unzip)
-- `bash -c "$(wget -qO- https://raw.githubusercontent.com/samara15321/awg2/main/autoinstall-GO.sh)"`
++ Для варианта с **GO** (+ установите unzip)
+- `wget -qO- https://raw.githubusercontent.com/samara1531/awg2/main/aautoinstall-GO.sh | sh`
 ***
