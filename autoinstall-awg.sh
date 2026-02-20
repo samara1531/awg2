@@ -128,5 +128,5 @@ if [ "$INST_KMOD" -eq 1 ] &&
    [ "$INST_LUCI" -eq 1 ]; then
     echo
     echo "⚠ Reboot required to apply changes"
-    echo "reboot"
+    echo "⚠ Для применения изменений требуется перезагрузка роутера"
 fi
