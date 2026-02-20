@@ -22,14 +22,19 @@
 +
 + для [immortalwrt](https://github.com/samara15321/awg2/releases)
 -----------------------
-+ **Автоустановка** (если есть пакеты под вашу версию врт)
-- сам определит вашу архитектуру, версию врт. **amneziaGO не устанавливается.**
-+ Для wrt **23.05.x-24.10.x**
-- `opkg update && opkg install unzip`
-- `wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh?$(date +%s)" | sh`
-+ Для wrt **25.12.x**
-- `apk add unzip`
-- `wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh?$(date +%s)" | sh`
-+ Для варианта с **GO** (+ установите unzip)
-- `wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-GO.sh?$(date +%s)" | sh`
-***
+### Автоустановка AWG (если есть пакеты под вашу версию WRT)
+
+# Для OpenWrt 23.05.x – 24.10.x
+```sh
+opkg update && opkg install unzip
+wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh?$(date +%s)" | sh
+```
+# Для OpenWrt 25.12.x
+```sh
+apk add unzip
+wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh?$(date +%s)" | sh
+```
+# Вариант с AWG-GO (установите unzip)
+```sh
+wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-GO.sh?$(date +%s)" | sh
+```
