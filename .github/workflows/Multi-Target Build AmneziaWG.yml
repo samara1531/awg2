@@ -161,18 +161,57 @@ jobs:
           # --- подключаем кастомный feed ---
           echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
 
-          # --- повторное обновление feed с паузами ---
-          MAX_ATTEMPTS=20
+          # --- git настройки против early EOF ---
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 524288000
+          git config --global core.compression 0
+
+          # --- функция очистки повреждённых feeds ---
+          fix_broken_feeds() {
+            for d in openwrt/feeds/*; do
+              [ -d "$d/.git" ] || continue
+              git -C "$d" rev-parse HEAD >/dev/null 2>&1 || rm -rf "$d"
+            done
+          }
+
+          # --- переключение feeds на GitHub mirrors ---
+          switch_to_github_mirrors() {
+            echo "Переключаемся на GitHub mirrors..."
+
+            sed -i 's|https://git.openwrt.org/openwrt/openwrt.git|https://github.com/openwrt/openwrt.git|g' openwrt/feeds.conf.default
+            sed -i 's|https://git.openwrt.org/feed/packages.git|https://github.com/openwrt/packages.git|g' openwrt/feeds.conf.default
+            sed -i 's|https://git.openwrt.org/project/luci.git|https://github.com/openwrt/luci.git|g' openwrt/feeds.conf.default
+            sed -i 's|https://git.openwrt.org/feed/routing.git|https://github.com/openwrt/routing.git|g' openwrt/feeds.conf.default
+            sed -i 's|https://git.openwrt.org/feed/telephony.git|https://github.com/openwrt/telephony.git|g' openwrt/feeds.conf.default
+
+            rm -rf openwrt/feeds/*
+          }
+
+          # --- попытки обновления feeds ---
+          MAX_ATTEMPTS=10
           attempt=1
+          switched=0
+
           until ./openwrt/scripts/feeds update -a; do
-            if [ $attempt -ge $MAX_ATTEMPTS ]; then
-              echo "Ошибка: feeds update не удалось после $MAX_ATTEMPTS попыток" >&2
+            if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+              echo "Ошибка: feeds update окончательно не удалось" >&2
               exit 1
             fi
-            echo "feeds update провалился (попытка $attempt/$MAX_ATTEMPTS), ждём 10–40 сек и пробуем снова..."
+
+            echo "feeds update провалился ($attempt/$MAX_ATTEMPTS)"
+
+            fix_broken_feeds
+
+            # после 3 неудач переключаемся на GitHub mirror
+            if [ "$attempt" -eq 3 ] && [ "$switched" -eq 0 ]; then
+              switch_to_github_mirrors
+              switched=1
+            fi
+
             sleep $((10 + RANDOM % 31))
             attempt=$((attempt + 1))
           done
+
           echo "Feeds успешно обновлены"
 
           curl -fsL "$BASE/config.buildinfo" > openwrt/.config
