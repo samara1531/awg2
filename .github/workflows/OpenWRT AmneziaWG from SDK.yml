@@ -167,6 +167,7 @@ jobs:
       run: |
         set -e -x
         cd openwrt
+        make -C openwrt target/linux/compile V=s -j $(nproc)
         if [ "${{ env.compile_kmod }}" = "true" ]; then
           make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j $(nproc)
         fi
