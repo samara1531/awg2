@@ -7,7 +7,7 @@ on:
         description: "OpenWrt version"
         type: string
         required: true
-        default: "21.02.7"
+        default: "24.10.5"
       amneziawg_version:
         description: "AmneziaWG version"
         type: string
@@ -163,10 +163,6 @@ jobs:
         echo "Feeds успешно обновлены"
 
         curl -fsL "$base_url/config.buildinfo" > openwrt/.config
-        echo "CONFIG_CRYPTO_XXHASH=m" >> openwrt/.config
-        echo "CONFIG_PACKAGE_kmod-crypto-xxhash=y" >> openwrt/.config 
-        echo "CONFIG_PACKAGE_kmod-crypto-hash=y" >> openwrt/.config 
-        echo "CONFIG_PACKAGE_kmod-lib-xxhash=y" >> openwrt/.config 
         echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
