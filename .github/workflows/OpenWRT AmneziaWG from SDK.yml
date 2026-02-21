@@ -191,10 +191,10 @@ jobs:
         set -e -x
         cd openwrt
         if [ "${{ env.compile_kmod }}" = "true" ]; then
-          make package/kmod-amneziawg/compile V=s -j $(nproc)
+          make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j $(nproc)
         fi
         if [ "${{ env.compile_go }}" = "true" ]; then
-          make package/amneziawg-go/compile -j $(nproc)
+          make package/amneziawg-go/{clean,download,prepare,compile} -j $(nproc)
         fi
         make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j $(nproc)
         make package/amneziawg-tools/{clean,download,prepare,compile} -j $(nproc)
