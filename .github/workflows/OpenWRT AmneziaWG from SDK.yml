@@ -207,8 +207,11 @@ jobs:
         find "openwrt/bin/packages" \
           -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
+    - name: Create zip
+      run: zip -r openwrt-amneziawg-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}.zip awgrelease/
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: openwrt-amneziawg-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}
-        path: awgrelease/*
+        path: openwrt-amneziawg-*.zip
