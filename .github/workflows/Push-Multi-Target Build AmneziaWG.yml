@@ -112,6 +112,23 @@ jobs:
             rm -f *.tar.zst *.tar.xz
             mv openwrt-sdk* openwrt
 
+            # --- подключаем кастомный feed ---
+            echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
+
+            # --- повторное обновление feed с паузами ---
+            MAX_ATTEMPTS=10
+            attempt=1
+            until ./openwrt/scripts/feeds update -a; do
+              if [ $attempt -ge $MAX_ATTEMPTS ]; then
+                echo "Ошибка: feeds update не удалось после $MAX_ATTEMPTS попыток" >&2
+                exit 1
+              fi
+              echo "feeds update провалился (попытка $attempt/$MAX_ATTEMPTS), ждём 10–40 сек и пробуем снова..."
+              sleep $((10 + RANDOM % 31))
+              attempt=$((attempt + 1))
+            done
+            echo "Feeds успешно обновлены"
+
             curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
             echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
