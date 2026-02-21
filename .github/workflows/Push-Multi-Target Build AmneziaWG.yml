@@ -202,8 +202,6 @@ jobs:
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
 
           if [ "$compile_go" = "true" ]; then
-            rm -rf tmp/go-build dl/go-mod-cache
-
             make package/amneziawg-go/{clean,download,prepare,compile} V=s -j$(nproc) \
               || echo "amneziawg-go failed — continuing anyway"
           fi
