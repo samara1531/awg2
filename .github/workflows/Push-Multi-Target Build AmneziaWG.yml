@@ -115,18 +115,52 @@ jobs:
             # --- подключаем кастомный feed ---
             echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
 
-            # --- повторное обновление feed с паузами ---
+            # --- делаем git менее склонным к early EOF ---
+            git config --global http.version HTTP/1.1
+            git config --global http.postBuffer 524288000
+            git config --global core.compression 0
+            git config --global http.lowSpeedLimit 0
+            git config --global http.lowSpeedTime 999999
+
+            # --- функция очистки только повреждённых feeds ---
+            fix_broken_feeds() {
+              echo "Проверяем feeds на повреждения..."
+
+              for d in openwrt/feeds/*; do
+                [ -d "$d/.git" ] || continue
+
+                if ! git -C "$d" rev-parse HEAD >/dev/null 2>&1; then
+                  echo "Feed $(basename "$d") повреждён — удаляем"
+                  rm -rf "$d"
+                  continue
+                fi
+
+                if ! git -C "$d" fsck --no-progress >/dev/null 2>&1; then
+                  echo "Feed $(basename "$d") имеет битые объекты — удаляем"
+                  rm -rf "$d"
+                fi
+              done
+            }
+
+            # --- повторное обновление feed с умным retry ---
             MAX_ATTEMPTS=10
             attempt=1
+
             until ./openwrt/scripts/feeds update -a; do
-              if [ $attempt -ge $MAX_ATTEMPTS ]; then
+              if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
                 echo "Ошибка: feeds update не удалось после $MAX_ATTEMPTS попыток" >&2
                 exit 1
               fi
-              echo "feeds update провалился (попытка $attempt/$MAX_ATTEMPTS), ждём 10–40 сек и пробуем снова..."
+
+              echo "feeds update провалился ($attempt/$MAX_ATTEMPTS)"
+              echo "Чистим только повреждённые feeds и пробуем снова..."
+
+              fix_broken_feeds
+
               sleep $((10 + RANDOM % 31))
               attempt=$((attempt + 1))
             done
+
             echo "Feeds успешно обновлены"
 
             curl -fsL "$BASE_URL/config.buildinfo" > openwrt/.config
