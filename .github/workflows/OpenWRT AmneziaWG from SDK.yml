@@ -144,6 +144,7 @@ jobs:
 
         curl -fsL "$base_url/config.buildinfo" > openwrt/.config
         echo "CONFIG_CRYPTO_XXHASH=m" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-xxhash=y" >> openwrt/.config 
         echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
@@ -160,50 +161,23 @@ jobs:
         ./openwrt/scripts/feeds install -a
         make -C openwrt defconfig
 
-    - name: Download kmod-crypto-xxhash
-      run: |
-        mkdir -p awgrelease
-
-        # --- формируем базовый URL ---
-        if [ "${{ inputs.openwrt_version }}" = "SNAPSHOT" ]; then
-          BASE_URL="https://downloads.openwrt.org/snapshots/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages/"
-        else
-          BASE_URL="https://downloads.openwrt.org/releases/${{ inputs.openwrt_version }}/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages/"
-        fi
-
-        # --- определяем расширение пакета ---
-        MAJOR=$(echo "${{ inputs.openwrt_version }}" | cut -d. -f1)
-        MINOR=$(echo "${{ inputs.openwrt_version }}" | cut -d. -f2)
-        if [ "$MAJOR" -ge 24 ] && [ "$MINOR" -ge 10 ]; then
-          EXT="apk"
-        else
-          EXT="ipk"
-        fi
-
-        # --- ищем пакет ---
-        FILE=$(curl -s "$BASE_URL" | grep -oP "kmod-crypto-xxhash[^\"']*_${{ inputs.openwrt_arch }}.*\.${EXT}" | head -n1)
-
-        if [ -z "$FILE" ]; then
-          echo "kmod-crypto-xxhash.$EXT not found, fallback: придётся собирать через SDK"
-        else
-          curl -fsSL -o awgrelease/$FILE "$BASE_URL$FILE"
-          echo "Downloaded kmod-crypto-xxhash.$EXT: $FILE"
-        fi
-
     - name: Compile AmneziaWG packages
       env:
         compile_kmod: ${{ inputs.compile_kmod }}
         compile_go: ${{ inputs.compile_go }}
       run: |
         set -e -x
-        if [ "${{ env.compile_kmod }}" = "true" ]; then
-          make -C openwrt package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j $(nproc)
-        fi
-        make -C openwrt package/luci-proto-amneziawg/{clean,download,prepare,compile} -j $(nproc)
-        make -C openwrt package/amneziawg-tools/{clean,download,prepare,compile} -j $(nproc)
+        cd openwrt
+        # --- собираем kmod-crypto-xxhash ---
+        make package/kmod-crypto-xxhash/{clean,download,prepare,compile} V=s -j$(nproc)
+
+        # --- собираем остальные пакеты AmneziaWG ---
+        make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j$(nproc)
+        make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+        make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
+
         if [ "$compile_go" = "true" ]; then
-          make -C openwrt package/amneziawg-go/compile V=s -j$(nproc) \
-            || echo "amneziawg-go failed — continuing anyway"
+          make package/amneziawg-go/compile V=s -j$(nproc)
         fi
 
     - name: Prepare artifacts
