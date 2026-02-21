@@ -83,11 +83,13 @@ jobs:
           echo "SDK file not found."
           exit 1
         fi
+        
         curl -fsLO "$base_url$sdk_url"
         file_name=$(basename "$sdk_url")
-        tar -xf "$file_name"
-        rm -f *.tar.zst
+        tar -xf $(basename "$sdk_url")
+        rm -f *.tar.zst *.tar.xz
         mv openwrt-sdk* openwrt
+
         echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
 
         # --- git настройки против early EOF ---
