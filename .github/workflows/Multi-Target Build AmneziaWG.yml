@@ -239,13 +239,13 @@ jobs:
           cd openwrt
           set +e
 
-          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc) || true
+          make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           KMOD_STATUS=$?
 
-          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc) || true
+          make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
           TOOLS_STATUS=$?
 
-          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc) || true
+          make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           LUCI_STATUS=$?
 
           if [ "$compile_go" = "true" ]; then
