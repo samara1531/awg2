@@ -7,7 +7,7 @@ on:
         description: "OpenWrt version"
         type: string
         required: true
-        default: "25.12.0-rc5"
+        default: "21.02.7"
       amneziawg_version:
         description: "AmneziaWG version"
         type: string
@@ -17,17 +17,17 @@ on:
         description: "OpenWrt arch"
         type: string
         required: true
-        default: "aarch64_cortex-a53"
+        default: "aarch64_generic"
       openwrt_target:
         description: "OpenWrt target"
         type: string
         required: true
-        default: "microchipsw"
+        default: "rockchip"
       openwrt_subtarget:
         description: "OpenWrt subtarget"
         type: string
         required: true
-        default: "lan969x"
+        default: "armv8"
       compile_kmod:
         description: "Compile kernel module inplementation"
         type: boolean
@@ -172,7 +172,7 @@ jobs:
         set -e -x
         cd openwrt
         if [ "${{ env.compile_kmod }}" = "true" ]; then
-          make package/kmod-amneziawg/compile -j $(nproc)
+          make package/kmod-amneziawg/compile V=s -j $(nproc)
         fi
         if [ "${{ env.compile_go }}" = "true" ]; then
           make package/amneziawg-go/compile -j $(nproc)
