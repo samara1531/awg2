@@ -145,6 +145,8 @@ jobs:
         curl -fsL "$base_url/config.buildinfo" > openwrt/.config
         echo "CONFIG_CRYPTO_XXHASH=m" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-xxhash=y" >> openwrt/.config 
+        echo "CONFIG_PACKAGE_kmod-crypto-hash=y" >> openwrt/.config 
+        echo "CONFIG_PACKAGE_kmod-lib-xxhash=y" >> openwrt/.config 
         echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
@@ -169,7 +171,7 @@ jobs:
         set -e -x
         cd openwrt
         # --- собираем kmod-crypto-xxhash ---
-        make package/kmod-crypto-xxhash/{clean,download,prepare,compile} V=s -j$(nproc)
+        make package/kmod-crypto-xxhash/compile V=s -j$(nproc)
 
         # --- собираем остальные пакеты AmneziaWG ---
         make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j$(nproc)
