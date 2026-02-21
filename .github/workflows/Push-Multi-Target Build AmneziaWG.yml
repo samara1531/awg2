@@ -143,7 +143,7 @@ jobs:
             }
 
             # --- повторное обновление feed с умным retry ---
-            MAX_ATTEMPTS=10
+            MAX_ATTEMPTS=30
             attempt=1
 
             until ./openwrt/scripts/feeds update -a; do
