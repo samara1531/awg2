@@ -7,7 +7,7 @@ on:
         description: "OpenWrt version"
         type: string
         required: true
-        default: "25.12.0-rc3"
+        default: "25.12.0-rc5"
       amneziawg_version:
         description: "AmneziaWG version"
         type: string
