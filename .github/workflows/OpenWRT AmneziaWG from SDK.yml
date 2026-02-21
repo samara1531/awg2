@@ -80,7 +80,7 @@ jobs:
         fi
 
         # Flexible SDK detection for both .tar.xz (old releases) and .tar.zst (newer/snapshots)
-        sdk_url=$(curl -s "${base_url}" | grep -o 'openwrt-sdk[^"]*\.tar\.[xz|zs]t' | head -n1)
+        sdk_url=$(curl -s "${base_url}" | grep -oE 'openwrt-sdk[^"]+\.(tar\.xz|tar\.zst)' | head -n1)
 
         if [[ -z "$sdk_url" ]]; then
           echo "SDK file not found in $base_url"
@@ -90,11 +90,22 @@ jobs:
         fi
 
         echo "Downloading SDK: $sdk_url"
+
         curl -fsLO "$base_url$sdk_url"
 
-        tar -xf "$sdk_url"
+        file_name=$(basename "$sdk_url")
+        case "$file_name" in
+          *.tar.zst)
+            tar --use-compress-program=unzstd -xf "$file_name"
+            ;;
+          *.tar.xz)
+            tar -xf "$file_name"
+            ;;
+        esac
+
         rm -f openwrt-sdk*.tar.*
         mv openwrt-sdk* openwrt
+
 
         echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
 
