@@ -78,16 +78,23 @@ jobs:
         else
           base_url="https://downloads.openwrt.org/releases/${{ inputs.openwrt_version }}/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/"
         fi
-        sdk_url=$(curl -s "${base_url}" | grep -oP 'href="openwrt-sdk[^"]+\.tar\.zst"' | sed -e 's/href="//' -e 's/"$//' | head -n1)
-        if [[ -z "$sdk_url" ]]; then
-          echo "SDK file not found."
-          exit 1
-        fi
+
+        sdk_url=$(
+             curl -s "${base_url}" \
+             | grep -oP 'href="openwrt-sdk[^"]+\.(tar\.zst|tar\.xz)"' \
+             | sed -e 's/href="//' -e 's/"$//' \
+             | head -n1
+        )
         
-        curl -fsLO "$base_url$sdk_url"
         file_name=$(basename "$sdk_url")
-        tar -xf $(basename "$sdk_url")
+
+        case "$file_name" in
+          *.tar.zst) tar --use-compress-program=unzstd -xf "$file_name" ;;
+          *.tar.xz)  tar -xf "$file_name" ;;
+         esac
+
         rm -f *.tar.zst *.tar.xz
+        
         mv openwrt-sdk* openwrt
 
         echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
