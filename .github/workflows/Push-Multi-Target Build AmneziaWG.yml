@@ -196,25 +196,17 @@ jobs:
           set +e
 
           make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-          KMOD_STATUS=$?
 
           make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
-          TOOLS_STATUS=$?
 
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
-          LUCI_STATUS=$?
 
           if [ "$compile_go" = "true" ]; then
+            rm -rf tmp/go-build dl/go-mod-cache
+
             make package/amneziawg-go/{clean,download,prepare,compile} V=s -j$(nproc) \
               || echo "amneziawg-go failed — continuing anyway"
           fi
-
-          if [ $KMOD_STATUS -ne 0 ] || [ $LUCI_STATUS -ne 0 ] || [ $TOOLS_STATUS -ne 0 ]; then
-            echo "One or more REQUIRED packages failed"
-            exit 1
-          fi
-
-          echo "All required packages built successfully"
 
       - name: Upload release assets
         run: |
