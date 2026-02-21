@@ -170,8 +170,12 @@ jobs:
       run: |
         set -e -x
         cd openwrt
-        # --- собираем kmod-crypto-xxhash ---
-        make package/kmod-crypto-xxhash/compile V=s -j$(nproc)
+        make prepare
+        make tools/install -j$(nproc)
+        make toolchain/install -j$(nproc)
+
+        # ✅ собираем ВСЕ kernel modules разом
+        make package/kernel/linux/compile V=s -j$(nproc)
 
         # --- собираем остальные пакеты AmneziaWG ---
         make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j$(nproc)
