@@ -1,13 +1,5 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const zlib = require('zlib');
-const tar = require('tar-stream');
-const pLimit = require('p-limit');
-
-axios.defaults.timeout = 20000;
-axios.defaults.headers.common['User-Agent'] = 'openwrt-matrix-builder';
-
-const limit = pLimit(8);
 
 const version = process.argv[2];
 if (!version) {
@@ -27,134 +19,96 @@ async function fetchJSON(url) {
   return data;
 }
 
-/* ---------------- HELPERS ---------------- */
-
-// Получаем все директории (таргеты или сабтаргеты)
-async function listDirs(url) {
-  const $ = await fetchHTML(url);
-  return $('a')
+async function getTargets() {
+  const $ = await fetchHTML(baseUrl);
+  return $('table tr td.n a')
     .map((i, el) => $(el).attr('href'))
     .get()
-    .filter(h => h && h.endsWith('/') && h !== '../')
-    .map(h => h.replace(/\/$/, ''));
-}
-
-/* ---------------- TARGETS ---------------- */
-
-async function getTargets() {
-  return listDirs(baseUrl);
+    .filter(href => href && href.endsWith('/'))
+    .map(href => href.slice(0, -1));
 }
 
 async function getSubtargets(target) {
-  return listDirs(`${baseUrl}${target}/`);
+  const $ = await fetchHTML(`${baseUrl}${target}/`);
+  return $('table tr td.n a')
+    .map((i, el) => $(el).attr('href'))
+    .get()
+    .filter(href => href && href.endsWith('/'))
+    .map(href => href.slice(0, -1));
 }
 
-/* ---------------- PACKAGE ARCH ---------------- */
-
-async function getPkgarchFromAPK(target, subtarget) {
-  const url = `${baseUrl}${target}/${subtarget}/packages/APKINDEX.tar.gz`;
-
-  try {
-    const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-    const extract = tar.extract();
-    const arches = new Set();
-
-    return await new Promise((resolve, reject) => {
-      extract.on('entry', (header, stream, next) => {
-        if (header.name === 'APKINDEX') {
-          let text = '';
-          stream.on('data', c => text += c.toString());
-          stream.on('end', () => {
-            for (const m of text.matchAll(/^A:(.+)$/gm)) arches.add(m[1].trim());
-            next();
-          });
-        } else {
-          stream.resume();
-          next();
-        }
-      });
-      extract.on('finish', () => resolve([...arches]));
-      extract.on('error', reject);
-
-      const gunzip = zlib.createGunzip();
-      gunzip.pipe(extract);
-      gunzip.end(data);
-    });
-  } catch {
-    return [];
+async function getPkgarch(target, subtarget) {
+  // Хардкод для malta
+  if (target === 'malta') {
+    if (subtarget === 'be' || subtarget === 'le') {
+      return 'mipsel_24kc';
+    }
+    if (subtarget === 'be64' || subtarget === 'le64') {
+      return 'mips64el_octeonplus';
+    }
   }
-}
 
-async function getPkgarchFromPackagesGz(target, subtarget) {
-  const url = `${baseUrl}${target}/${subtarget}/packages/Packages.gz`;
-
+  const profilesUrl = `${baseUrl}${target}/${subtarget}/profiles.json`;
   try {
-    const { data } = await axios.get(url, { responseType: 'arraybuffer' });
-    const text = zlib.gunzipSync(data).toString();
-    const arches = new Set();
-
-    for (const m of text.matchAll(/^Architecture:\s*(.+)$/gm)) arches.add(m[1].trim());
-    return [...arches];
-  } catch {
-    return [];
+    const json = await fetchJSON(profilesUrl);
+    if (json && json.arch_packages) {
+      return json.arch_packages;
+    }
+  } catch (err) {
+    console.warn(`profiles.json not available for ${target}/${subtarget}, falling back to .ipk parsing`);
+    return await getPkgarchFallback(target, subtarget);
   }
+
+  return 'unknown';
 }
 
-async function getPkgarchFromIPK(target, subtarget) {
-  const url = `${baseUrl}${target}/${subtarget}/packages/`;
+async function getPkgarchFallback(target, subtarget) {
+  const packagesUrl = `${baseUrl}${target}/${subtarget}/packages/`;
+  let pkgarch = 'unknown';
   try {
-    const $ = await fetchHTML(url);
-    const arches = new Set();
-
+    const $ = await fetchHTML(packagesUrl);
     $('a').each((i, el) => {
       const name = $(el).attr('href');
-      if (!name || !name.endsWith('.ipk')) return;
-      const m = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
-      if (m) arches.add(m[1]);
+      if (name && name.endsWith('.ipk') && !name.startsWith('kernel_') && !name.includes('kmod-')) {
+        const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
+        if (match) {
+          pkgarch = match[1];
+          return false;
+        }
+      }
     });
-    return [...arches];
-  } catch {
-    return [];
+    if (pkgarch === 'unknown') {
+      $('a').each((i, el) => {
+        const name = $(el).attr('href');
+        if (name && name.endsWith('.ipk') && name.startsWith('kernel_')) {
+          const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
+          if (match) {
+            pkgarch = match[1];
+            return false;
+          }
+        }
+      });
+    }
+  } catch (err) {
+    // silent
   }
+  return pkgarch;
 }
-
-// Определяем архитектуру
-async function getPkgarch(target, subtarget) {
-  // Проверка для malta (автоматически определяется через APK или Packages)
-  let arches = await getPkgarchFromAPK(target, subtarget);
-  if (arches.length) return arches;
-
-  arches = await getPkgarchFromPackagesGz(target, subtarget);
-  if (arches.length) return arches;
-
-  arches = await getPkgarchFromIPK(target, subtarget);
-  if (arches.length) return arches;
-
-  return ['unknown'];
-}
-
-/* ---------------- MAIN ---------------- */
 
 async function main() {
   try {
     const targets = await getTargets();
     const matrix = [];
 
-    await Promise.all(targets.map(target =>
-      limit(async () => {
-        const subtargets = await getSubtargets(target);
+    for (const target of targets) {
+      const subtargets = await getSubtargets(target);
+      for (const subtarget of subtargets) {
+        const pkgarch = await getPkgarch(target, subtarget);
+        matrix.push({ target, subtarget, pkgarch });
+      }
+    }
 
-        await Promise.all(subtargets.map(subtarget =>
-          limit(async () => {
-            const arches = await getPkgarch(target, subtarget);
-            for (const pkgarch of arches) {
-              matrix.push({ target, subtarget, pkgarch });
-            }
-          })
-        ));
-      })
-    ));
-
+    // Одна строка — важно для GitHub Actions!
     console.log(JSON.stringify({ include: matrix }));
   } catch (err) {
     console.error('Error:', err.message || err);
