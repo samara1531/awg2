@@ -8,6 +8,7 @@ axios.defaults.timeout = 20000;
 axios.defaults.headers.common['User-Agent'] = 'openwrt-matrix-builder';
 
 const limit = pLimit(8);
+
 const version = process.argv[2];
 if (!version) {
   console.error('Version argument is required');
@@ -16,6 +17,7 @@ if (!version) {
 
 const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
 
+// ---------------- UTILS ----------------
 async function fetchHTML(url) {
   const { data } = await axios.get(url);
   return cheerio.load(data);
@@ -32,21 +34,20 @@ async function listDirs(url) {
     .map((i, el) => $(el).attr('href'))
     .get()
     .filter(h => h && h.endsWith('/') && h !== '../')
-    .map(h => h.slice(0, -1));
+    .map(h => h.replace(/\/$/, ''));
 }
 
-/* ---------------- TARGETS ---------------- */
-
+// ---------------- TARGETS ----------------
 async function getTargets() {
   return listDirs(baseUrl);
 }
 
 async function getSubtargets(target) {
-  return listDirs(`${baseUrl}${target}/`);
+  const url = `${baseUrl}${target}/`;
+  return listDirs(url);
 }
 
-/* ---------------- APK (NEW OPENWRT) ---------------- */
-
+// ---------------- ARCH DETECTION ----------------
 async function getPkgarchFromAPK(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/APKINDEX.tar.gz`;
   try {
@@ -54,13 +55,15 @@ async function getPkgarchFromAPK(target, subtarget) {
     const extract = tar.extract();
     const arches = new Set();
 
-    await new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       extract.on('entry', (header, stream, next) => {
         if (header.name === 'APKINDEX') {
           let text = '';
           stream.on('data', c => text += c.toString());
           stream.on('end', () => {
-            for (const m of text.matchAll(/^A:(.+)$/gm)) arches.add(m[1].trim());
+            for (const m of text.matchAll(/^A:(.+)$/gm)) {
+              arches.add(m[1].trim());
+            }
             next();
           });
         } else {
@@ -68,20 +71,17 @@ async function getPkgarchFromAPK(target, subtarget) {
           next();
         }
       });
-      extract.on('finish', resolve);
+      extract.on('finish', () => resolve([...arches]));
       extract.on('error', reject);
+
       const gunzip = zlib.createGunzip();
       gunzip.pipe(extract);
       gunzip.end(data);
     });
-
-    return [...arches];
   } catch {
     return [];
   }
 }
-
-/* ---------------- PACKAGES.GZ (OLD) ---------------- */
 
 async function getPkgarchFromPackagesGz(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/Packages.gz`;
@@ -89,14 +89,14 @@ async function getPkgarchFromPackagesGz(target, subtarget) {
     const { data } = await axios.get(url, { responseType: 'arraybuffer' });
     const text = zlib.gunzipSync(data).toString();
     const arches = new Set();
-    for (const m of text.matchAll(/^Architecture:\s*(.+)$/gm)) arches.add(m[1].trim());
+    for (const m of text.matchAll(/^Architecture:\s*(.+)$/gm)) {
+      arches.add(m[1].trim());
+    }
     return [...arches];
   } catch {
     return [];
   }
 }
-
-/* ---------------- IPK FALLBACK (VERY OLD) ---------------- */
 
 async function getPkgarchFromIPK(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/`;
@@ -115,21 +115,21 @@ async function getPkgarchFromIPK(target, subtarget) {
   }
 }
 
-/* ---------------- MASTER ARCH DETECTOR ---------------- */
-
+// ---------------- MASTER ARCH DETECTOR ----------------
 async function getPkgarchs(target, subtarget) {
+  // Попробуем APK
   let arches = await getPkgarchFromAPK(target, subtarget);
   if (arches.length) return arches;
 
+  // Попробуем Packages.gz
   arches = await getPkgarchFromPackagesGz(target, subtarget);
   if (arches.length) return arches;
 
-  arches = await getPkgarchFromIPK(target, subtarget);
-  return arches.length ? arches : ['unknown'];
+  // Фоллбек на IPK
+  return await getPkgarchFromIPK(target, subtarget);
 }
 
-/* ---------------- MAIN ---------------- */
-
+// ---------------- MAIN ----------------
 async function main() {
   try {
     const matrix = [];
@@ -141,16 +141,17 @@ async function main() {
         await Promise.all(subtargets.map(subtarget =>
           limit(async () => {
             const pkgarchs = await getPkgarchs(target, subtarget);
-            for (const pkgarch of pkgarchs) matrix.push({ target, subtarget, pkgarch });
+            for (const pkgarch of pkgarchs) {
+              matrix.push({ target, subtarget, pkgarch });
+            }
           })
         ));
       })
     ));
 
-    // Вывод для GitHub Actions
     console.log(JSON.stringify({ include: matrix }));
   } catch (err) {
-    console.error(err);
+    console.error('Error:', err.message || err);
     process.exit(1);
   }
 }
