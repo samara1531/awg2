@@ -38,49 +38,54 @@ async function getSubtargets(target) {
 }
 
 async function getPkgarch(target, subtarget) {
-  // Хардкод для malta
+
+  // --- MANUAL MALTA ARCHS ---
   if (target === 'malta') {
-    if (subtarget === 'be' || subtarget === 'le') {
-      return 'mipsel_24kc';
-    }
-    if (subtarget === 'be64' || subtarget === 'le64') {
-      return 'mips64el_octeonplus';
-    }
+    const maltaMap = {
+      'be': 'mipsel_24kc',
+      'le': 'mipsel_24kc',
+      'be64': 'mips64el_octeonplus',
+      'be64_r2': 'mips64_mips64r2',
+      'le64': 'mips64el_octeonplus',
+      'le64_r2': 'mips64_mips64r2'
+    };
+    if (maltaMap[subtarget]) return maltaMap[subtarget];
   }
 
+  // --- Try profiles.json first (for 25.x+) ---
   const profilesUrl = `${baseUrl}${target}/${subtarget}/profiles.json`;
   try {
     const json = await fetchJSON(profilesUrl);
     if (json && json.arch_packages) {
       return json.arch_packages;
     }
-  } catch (err) {
-    console.warn(`profiles.json not available for ${target}/${subtarget}, falling back to .ipk parsing`);
-    return await getPkgarchFallback(target, subtarget);
+  } catch {
+    // profiles.json not found, fallback
   }
 
-  return 'unknown';
-}
-
-async function getPkgarchFallback(target, subtarget) {
+  // --- Fallback: parse .ipk packages (old method) ---
   const packagesUrl = `${baseUrl}${target}/${subtarget}/packages/`;
-  let pkgarch = 'unknown';
   try {
     const $ = await fetchHTML(packagesUrl);
+    let pkgarch = '';
+
+    // ищем первый не-kernel .ipk (обычно правильный arch)
     $('a').each((i, el) => {
       const name = $(el).attr('href');
-      if (name && name.endsWith('.ipk') && !name.startsWith('kernel_') && !name.includes('kmod-')) {
+      if (name && name.endsWith('.ipk') && !name.startsWith('kernel_')) {
         const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
         if (match) {
           pkgarch = match[1];
-          return false;
+          return false; // break
         }
       }
     });
-    if (pkgarch === 'unknown') {
+
+    // fallback: если ничего не нашли, пробуем kernel_*
+    if (!pkgarch) {
       $('a').each((i, el) => {
         const name = $(el).attr('href');
-        if (name && name.endsWith('.ipk') && name.startsWith('kernel_')) {
+        if (name && name.startsWith('kernel_')) {
           const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
           if (match) {
             pkgarch = match[1];
@@ -89,10 +94,11 @@ async function getPkgarchFallback(target, subtarget) {
         }
       });
     }
-  } catch (err) {
-    // silent
+
+    return pkgarch || 'unknown';
+  } catch {
+    return 'unknown';
   }
-  return pkgarch;
 }
 
 async function main() {
@@ -108,8 +114,9 @@ async function main() {
       }
     }
 
-    // Одна строка — важно для GitHub Actions!
+    // Одна строка для GitHub Actions
     console.log(JSON.stringify({ include: matrix }));
+
   } catch (err) {
     console.error('Error:', err.message || err);
     process.exit(1);
