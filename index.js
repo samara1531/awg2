@@ -67,18 +67,29 @@ async function getPkgarch(target, subtarget) {
   const packagesUrl = `${baseUrl}${target}/${subtarget}/packages/`;
   try {
     const $ = await fetchHTML(packagesUrl);
-    const arches = new Set();
+    const pkgarchs = new Set();
 
-    // ищем все уникальные arch из .ipk
+    // ищем все не-kernel .ipk
     $('a').each((i, el) => {
       const name = $(el).attr('href');
-      if (!name || !name.endsWith('.ipk')) return;
-
-      const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
-      if (match) arches.add(match[1]);
+      if (name && name.endsWith('.ipk') && !name.startsWith('kernel_')) {
+        const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
+        if (match) pkgarchs.add(match[1]);
+      }
     });
 
-    return [...arches].length ? [...arches] : ['unknown'];
+    // fallback: если ничего не нашли, пробуем kernel_*
+    if (!pkgarchs.size) {
+      $('a').each((i, el) => {
+        const name = $(el).attr('href');
+        if (name && name.startsWith('kernel_')) {
+          const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
+          if (match) pkgarchs.add(match[1]);
+        }
+      });
+    }
+
+    return pkgarchs.size ? [...pkgarchs] : ['unknown'];
   } catch {
     return ['unknown'];
   }
@@ -92,8 +103,15 @@ async function main() {
     for (const target of targets) {
       const subtargets = await getSubtargets(target);
       for (const subtarget of subtargets) {
-        const pkgarches = await getPkgarch(target, subtarget);
-        for (const pkgarch of pkgarches) {
+        let pkgarchs = await getPkgarch(target, subtarget);
+
+        // если getPkgarch вернул строку, преобразуем в массив
+        if (!Array.isArray(pkgarchs)) {
+          pkgarchs = [pkgarchs];
+        }
+
+        // создаём отдельный объект для каждой архитектуры
+        for (const pkgarch of pkgarchs) {
           matrix.push({ target, subtarget, pkgarch });
         }
       }
