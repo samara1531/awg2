@@ -38,8 +38,7 @@ async function getSubtargets(target) {
 }
 
 async function getPkgarch(target, subtarget) {
-
-  // --- MANUAL MALTA ARCHS (all known variants) ---
+  // --- MALTA: вручную задаем все архитектуры ---
   if (target === 'malta') {
     const maltaMap = {
       'be': ['mipsel_24kc', 'mips_24kc'],
@@ -47,51 +46,51 @@ async function getPkgarch(target, subtarget) {
       'be64': ['mips64el_octeonplus', 'mips64_mips64r2'],
       'le64': ['mips64el_octeonplus', 'mips64_mips64r2']
     };
-    if (maltaMap[subtarget]) return maltaMap[subtarget];
+    return maltaMap[subtarget] || [];
   }
 
-  // --- Try profiles.json first (for 25.x+) ---
+  // --- NEW OPENWRT (profiles.json) ---
   const profilesUrl = `${baseUrl}${target}/${subtarget}/profiles.json`;
   try {
     const json = await fetchJSON(profilesUrl);
-    if (json && json.arch_packages) {
-      return Array.isArray(json.arch_packages)
-        ? json.arch_packages
-        : [json.arch_packages];
-    }
+    if (json && json.arch_packages) return json.arch_packages;
   } catch {
-    // profiles.json not found, fallback
+    // ignore
   }
 
-  // --- Fallback: parse .ipk packages (old method) ---
+  // --- FALLBACK: первый найденный .ipk ---
   const packagesUrl = `${baseUrl}${target}/${subtarget}/packages/`;
   try {
     const $ = await fetchHTML(packagesUrl);
-    const pkgarchs = new Set();
 
-    // ищем все не-kernel .ipk
+    let pkgarch = '';
     $('a').each((i, el) => {
       const name = $(el).attr('href');
       if (name && name.endsWith('.ipk') && !name.startsWith('kernel_')) {
         const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
-        if (match) pkgarchs.add(match[1]);
+        if (match) {
+          pkgarch = match[1];
+          return false; // break
+        }
       }
     });
 
-    // fallback: если ничего не нашли, пробуем kernel_*
-    if (!pkgarchs.size) {
+    if (!pkgarch) {
       $('a').each((i, el) => {
         const name = $(el).attr('href');
         if (name && name.startsWith('kernel_')) {
           const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
-          if (match) pkgarchs.add(match[1]);
+          if (match) {
+            pkgarch = match[1];
+            return false;
+          }
         }
       });
     }
 
-    return pkgarchs.size ? [...pkgarchs] : ['unknown'];
+    return pkgarch ? [pkgarch] : [];
   } catch {
-    return ['unknown'];
+    return [];
   }
 }
 
@@ -102,22 +101,17 @@ async function main() {
 
     for (const target of targets) {
       const subtargets = await getSubtargets(target);
+
       for (const subtarget of subtargets) {
-        let pkgarchs = await getPkgarch(target, subtarget);
+        const pkgarches = await getPkgarch(target, subtarget);
 
-        // если getPkgarch вернул строку, преобразуем в массив
-        if (!Array.isArray(pkgarchs)) {
-          pkgarchs = [pkgarchs];
-        }
-
-        // создаём отдельный объект для каждой архитектуры
-        for (const pkgarch of pkgarchs) {
+        // создаем по одной записи на каждую архитектуру
+        for (const pkgarch of pkgarches) {
           matrix.push({ target, subtarget, pkgarch });
         }
       }
     }
 
-    // Одна строка для GitHub Actions
     console.log(JSON.stringify({ include: matrix }));
 
   } catch (err) {
