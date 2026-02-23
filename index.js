@@ -39,15 +39,13 @@ async function getSubtargets(target) {
 
 async function getPkgarch(target, subtarget) {
 
-  // --- MANUAL MALTA ARCHS ---
+  // --- MANUAL MALTA ARCHS (all known variants) ---
   if (target === 'malta') {
     const maltaMap = {
-      'be': 'mipsel_24kc',
-      'le': 'mipsel_24kc',
-      'be64': 'mips64el_octeonplus',
-      'be64_r2': 'mips64_mips64r2',
-      'le64': 'mips64el_octeonplus',
-      'le64_r2': 'mips64_mips64r2'
+      'be': ['mipsel_24kc', 'mips_24kc'],
+      'le': ['mipsel_24kc'],
+      'be64': ['mips64el_octeonplus', 'mips64_mips64r2'],
+      'le64': ['mips64el_octeonplus', 'mips64_mips64r2']
     };
     if (maltaMap[subtarget]) return maltaMap[subtarget];
   }
