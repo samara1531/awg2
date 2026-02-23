@@ -55,7 +55,9 @@ async function getPkgarch(target, subtarget) {
   try {
     const json = await fetchJSON(profilesUrl);
     if (json && json.arch_packages) {
-      return json.arch_packages;
+      return Array.isArray(json.arch_packages)
+        ? json.arch_packages
+        : [json.arch_packages];
     }
   } catch {
     // profiles.json not found, fallback
@@ -65,37 +67,20 @@ async function getPkgarch(target, subtarget) {
   const packagesUrl = `${baseUrl}${target}/${subtarget}/packages/`;
   try {
     const $ = await fetchHTML(packagesUrl);
-    let pkgarch = '';
+    const arches = new Set();
 
-    // ищем первый не-kernel .ipk (обычно правильный arch)
+    // ищем все уникальные arch из .ipk
     $('a').each((i, el) => {
       const name = $(el).attr('href');
-      if (name && name.endsWith('.ipk') && !name.startsWith('kernel_')) {
-        const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
-        if (match) {
-          pkgarch = match[1];
-          return false; // break
-        }
-      }
+      if (!name || !name.endsWith('.ipk')) return;
+
+      const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
+      if (match) arches.add(match[1]);
     });
 
-    // fallback: если ничего не нашли, пробуем kernel_*
-    if (!pkgarch) {
-      $('a').each((i, el) => {
-        const name = $(el).attr('href');
-        if (name && name.startsWith('kernel_')) {
-          const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
-          if (match) {
-            pkgarch = match[1];
-            return false;
-          }
-        }
-      });
-    }
-
-    return pkgarch || 'unknown';
+    return [...arches].length ? [...arches] : ['unknown'];
   } catch {
-    return 'unknown';
+    return ['unknown'];
   }
 }
 
@@ -107,8 +92,10 @@ async function main() {
     for (const target of targets) {
       const subtargets = await getSubtargets(target);
       for (const subtarget of subtargets) {
-        const pkgarch = await getPkgarch(target, subtarget);
-        matrix.push({ target, subtarget, pkgarch });
+        const pkgarches = await getPkgarch(target, subtarget);
+        for (const pkgarch of pkgarches) {
+          matrix.push({ target, subtarget, pkgarch });
+        }
       }
     }
 
