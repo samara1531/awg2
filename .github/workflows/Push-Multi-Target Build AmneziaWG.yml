@@ -36,8 +36,7 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: |
-            npm install axios cheerio
+        run: npm ci
 
       - name: Generate build matrix
         id: set-matrix
