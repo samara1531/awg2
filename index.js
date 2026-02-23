@@ -41,7 +41,7 @@ async function getPkgarch(target, subtarget) {
   // --- MANUAL MALTA ARCHS ---
   if (target === 'malta') {
     const maltaMap = {
-      'be': ['mipsel_24kc'],
+      'be': ['mipsel_24kc', 'mips_24kc'],
       'le': ['mipsel_24kc'],
       'be64': ['mips64el_octeonplus', 'mips64_mips64r2'],
       'le64': ['mips64el_octeonplus', 'mips64_mips64r2']
@@ -49,13 +49,14 @@ async function getPkgarch(target, subtarget) {
     return maltaMap[subtarget] || ['unknown'];
   }
 
-  // --- Try profiles.json (newer releases) ---
+  // --- Try profiles.json (newer releases, 25.x+) ---
   const profilesUrl = `${baseUrl}${target}/${subtarget}/profiles.json`;
   try {
     const json = await fetchJSON(profilesUrl);
-    if (json && json.arch_packages) return [json.arch_packages];
+    if (json && json.arch_packages) 
+      return Array.isArray(json.arch_packages) ? json.arch_packages : [json.arch_packages];
   } catch {
-    // fallback
+    // profiles.json not found, fallback
   }
 
   // --- Fallback: parse .ipk packages (old releases) ---
@@ -67,16 +68,20 @@ async function getPkgarchFallback(target, subtarget) {
   let pkgarch = 'unknown';
   try {
     const $ = await fetchHTML(packagesUrl);
+
+    // ищем первый не-kernel .ipk (обычно правильный arch)
     $('a').each((i, el) => {
       const name = $(el).attr('href');
       if (name && name.endsWith('.ipk') && !name.startsWith('kernel_') && !name.includes('kmod-')) {
         const match = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
         if (match) {
           pkgarch = match[1];
-          return false;
+          return false; // break
         }
       }
     });
+
+    // fallback: если ничего не нашли, пробуем kernel_*
     if (pkgarch === 'unknown') {
       $('a').each((i, el) => {
         const name = $(el).attr('href');
@@ -113,6 +118,7 @@ async function main() {
       }
     }
 
+    // вывод для GitHub Actions в одну строку
     console.log(JSON.stringify({ include: matrix }));
   } catch (err) {
     console.error('Error:', err.message || err);
