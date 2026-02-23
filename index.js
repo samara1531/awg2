@@ -17,29 +17,25 @@ if (!version) {
 
 const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
 
-/* ---------------- HELPERS ---------------- */
-
+// ---------------- HTML/JSON fetch ----------------
 async function fetchHTML(url) {
-  try {
-    const { data } = await axios.get(url);
-    return cheerio.load(data);
-  } catch (err) {
-    if (err.response && err.response.status === 404) return null;
-    throw err;
-  }
+  const { data } = await axios.get(url);
+  return cheerio.load(data);
+}
+async function fetchJSON(url) {
+  const { data } = await axios.get(url);
+  return data;
 }
 
+// ---------------- LIST TARGETS ----------------
 async function listDirs(url) {
   const $ = await fetchHTML(url);
-  if (!$) return [];
   return $('a')
     .map((i, el) => $(el).attr('href'))
     .get()
     .filter(h => h && h.endsWith('/') && h !== '../')
-    .map(h => h.replace(/\/$/, '')); // убираем последний слэш
+    .map(h => h.slice(0, -1));
 }
-
-/* ---------------- TARGETS ---------------- */
 
 async function getTargets() {
   return listDirs(baseUrl);
@@ -49,8 +45,7 @@ async function getSubtargets(target) {
   return listDirs(`${baseUrl}${target}/`);
 }
 
-/* ---------------- PACKAGE ARCH ---------------- */
-
+// ---------------- ARCH FROM APKINDEX ----------------
 async function getPkgarchFromAPK(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/APKINDEX.tar.gz`;
   try {
@@ -81,9 +76,12 @@ async function getPkgarchFromAPK(target, subtarget) {
     });
 
     return [...arches];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
+// ---------------- ARCH FROM Packages.gz ----------------
 async function getPkgarchFromPackagesGz(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/Packages.gz`;
   try {
@@ -92,67 +90,62 @@ async function getPkgarchFromPackagesGz(target, subtarget) {
     const arches = new Set();
     for (const m of text.matchAll(/^Architecture:\s*(.+)$/gm)) arches.add(m[1].trim());
     return [...arches];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
+// ---------------- ARCH FROM IPK ----------------
 async function getPkgarchFromIPK(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/`;
+  const arches = new Set();
   try {
     const $ = await fetchHTML(url);
-    if (!$) return [];
-    const arches = new Set();
     $('a').each((i, el) => {
       const name = $(el).attr('href');
       if (!name || !name.endsWith('.ipk')) return;
       const m = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
       if (m) arches.add(m[1]);
     });
-    return [...arches];
-  } catch { return []; }
+  } catch {}
+  return [...arches];
 }
 
+// ---------------- MASTER ARCH DETECTOR ----------------
 async function getPkgarchs(target, subtarget) {
   let arches = await getPkgarchFromAPK(target, subtarget);
   if (arches.length) return arches;
+
   arches = await getPkgarchFromPackagesGz(target, subtarget);
   if (arches.length) return arches;
-  return getPkgarchFromIPK(target, subtarget);
+
+  arches = await getPkgarchFromIPK(target, subtarget);
+  return arches.length ? arches : ['unknown'];
 }
 
-/* ---------------- MAIN ---------------- */
-
+// ---------------- MAIN ----------------
 async function main() {
   const matrix = [];
-  const targets = await getTargets();
+  try {
+    const targets = await getTargets();
 
-  if (!targets.length) {
-    console.error('No targets found for version', version);
+    await Promise.all(targets.map(target =>
+      limit(async () => {
+        const subtargets = await getSubtargets(target);
+        await Promise.all(subtargets.map(subtarget =>
+          limit(async () => {
+            const arches = await getPkgarchs(target, subtarget);
+            for (const pkgarch of arches) matrix.push({ target, subtarget, pkgarch });
+          })
+        ));
+      })
+    ));
+
+    console.log(JSON.stringify({ include: matrix }));
+  } catch (err) {
+    console.error('Error:', err.message || err);
     process.exit(1);
   }
-
-  await Promise.all(targets.map(target =>
-    limit(async () => {
-      const subtargets = await getSubtargets(target);
-      if (!subtargets.length) {
-        // fallback, если нет subtargets, используем target как subtarget
-        const arches = await getPkgarchs(target, target);
-        for (const pkgarch of arches) matrix.push({ target, subtarget: target, pkgarch });
-        return;
-      }
-
-      await Promise.all(subtargets.map(subtarget =>
-        limit(async () => {
-          const arches = await getPkgarchs(target, subtarget);
-          for (const pkgarch of arches) matrix.push({ target, subtarget, pkgarch });
-        })
-      ));
-    })
-  ));
-
-  process.stdout.write(JSON.stringify({ include: matrix }));
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+main();
