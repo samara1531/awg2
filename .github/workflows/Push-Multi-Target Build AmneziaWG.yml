@@ -35,6 +35,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install Node.js dependencies
+        run: |
+          echo "Cleaning npm cache..."
+          npm cache clean --force
+
       - name: Install dependencies
         run: npm install
 
