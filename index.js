@@ -8,7 +8,6 @@ axios.defaults.timeout = 20000;
 axios.defaults.headers.common['User-Agent'] = 'openwrt-matrix-builder';
 
 const limit = pLimit(8);
-
 const version = process.argv[2];
 if (!version) {
   console.error('Version argument is required');
@@ -17,17 +16,16 @@ if (!version) {
 
 const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
 
-// ---------------- HTML/JSON fetch ----------------
 async function fetchHTML(url) {
   const { data } = await axios.get(url);
   return cheerio.load(data);
 }
+
 async function fetchJSON(url) {
   const { data } = await axios.get(url);
   return data;
 }
 
-// ---------------- LIST TARGETS ----------------
 async function listDirs(url) {
   const $ = await fetchHTML(url);
   return $('a')
@@ -37,6 +35,8 @@ async function listDirs(url) {
     .map(h => h.slice(0, -1));
 }
 
+/* ---------------- TARGETS ---------------- */
+
 async function getTargets() {
   return listDirs(baseUrl);
 }
@@ -45,7 +45,8 @@ async function getSubtargets(target) {
   return listDirs(`${baseUrl}${target}/`);
 }
 
-// ---------------- ARCH FROM APKINDEX ----------------
+/* ---------------- APK (NEW OPENWRT) ---------------- */
+
 async function getPkgarchFromAPK(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/APKINDEX.tar.gz`;
   try {
@@ -69,7 +70,6 @@ async function getPkgarchFromAPK(target, subtarget) {
       });
       extract.on('finish', resolve);
       extract.on('error', reject);
-
       const gunzip = zlib.createGunzip();
       gunzip.pipe(extract);
       gunzip.end(data);
@@ -81,7 +81,8 @@ async function getPkgarchFromAPK(target, subtarget) {
   }
 }
 
-// ---------------- ARCH FROM Packages.gz ----------------
+/* ---------------- PACKAGES.GZ (OLD) ---------------- */
+
 async function getPkgarchFromPackagesGz(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/Packages.gz`;
   try {
@@ -95,23 +96,27 @@ async function getPkgarchFromPackagesGz(target, subtarget) {
   }
 }
 
-// ---------------- ARCH FROM IPK ----------------
+/* ---------------- IPK FALLBACK (VERY OLD) ---------------- */
+
 async function getPkgarchFromIPK(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/`;
-  const arches = new Set();
   try {
     const $ = await fetchHTML(url);
+    const arches = new Set();
     $('a').each((i, el) => {
       const name = $(el).attr('href');
       if (!name || !name.endsWith('.ipk')) return;
       const m = name.match(/_([a-zA-Z0-9_-]+)\.ipk$/);
       if (m) arches.add(m[1]);
     });
-  } catch {}
-  return [...arches];
+    return [...arches];
+  } catch {
+    return [];
+  }
 }
 
-// ---------------- MASTER ARCH DETECTOR ----------------
+/* ---------------- MASTER ARCH DETECTOR ---------------- */
+
 async function getPkgarchs(target, subtarget) {
   let arches = await getPkgarchFromAPK(target, subtarget);
   if (arches.length) return arches;
@@ -123,10 +128,11 @@ async function getPkgarchs(target, subtarget) {
   return arches.length ? arches : ['unknown'];
 }
 
-// ---------------- MAIN ----------------
+/* ---------------- MAIN ---------------- */
+
 async function main() {
-  const matrix = [];
   try {
+    const matrix = [];
     const targets = await getTargets();
 
     await Promise.all(targets.map(target =>
@@ -134,16 +140,17 @@ async function main() {
         const subtargets = await getSubtargets(target);
         await Promise.all(subtargets.map(subtarget =>
           limit(async () => {
-            const arches = await getPkgarchs(target, subtarget);
-            for (const pkgarch of arches) matrix.push({ target, subtarget, pkgarch });
+            const pkgarchs = await getPkgarchs(target, subtarget);
+            for (const pkgarch of pkgarchs) matrix.push({ target, subtarget, pkgarch });
           })
         ));
       })
     ));
 
+    // Вывод для GitHub Actions
     console.log(JSON.stringify({ include: matrix }));
   } catch (err) {
-    console.error('Error:', err.message || err);
+    console.error(err);
     process.exit(1);
   }
 }
