@@ -8,8 +8,8 @@ axios.defaults.timeout = 20000;
 axios.defaults.headers.common['User-Agent'] = 'openwrt-matrix-builder';
 
 const limit = pLimit(8);
-
 const version = process.argv[2];
+
 if (!version) {
   console.error('Version argument is required');
   process.exit(1);
@@ -17,7 +17,6 @@ if (!version) {
 
 const baseUrl = `https://downloads.openwrt.org/releases/${version}/targets/`;
 
-// ---------------- UTILS ----------------
 async function fetchHTML(url) {
   const { data } = await axios.get(url);
   return cheerio.load(data);
@@ -28,26 +27,27 @@ async function fetchJSON(url) {
   return data;
 }
 
+/* ---------------- TARGETS ---------------- */
+
 async function listDirs(url) {
   const $ = await fetchHTML(url);
   return $('a')
     .map((i, el) => $(el).attr('href'))
     .get()
     .filter(h => h && h.endsWith('/') && h !== '../')
-    .map(h => h.replace(/\/$/, ''));
+    .map(h => h.slice(0, -1));
 }
 
-// ---------------- TARGETS ----------------
 async function getTargets() {
   return listDirs(baseUrl);
 }
 
 async function getSubtargets(target) {
-  const url = `${baseUrl}${target}/`;
-  return listDirs(url);
+  return listDirs(`${baseUrl}${target}/`);
 }
 
-// ---------------- ARCH DETECTION ----------------
+/* ---------------- PACKAGES PARSERS ---------------- */
+
 async function getPkgarchFromAPK(target, subtarget) {
   const url = `${baseUrl}${target}/${subtarget}/packages/APKINDEX.tar.gz`;
   try {
@@ -61,9 +61,7 @@ async function getPkgarchFromAPK(target, subtarget) {
           let text = '';
           stream.on('data', c => text += c.toString());
           stream.on('end', () => {
-            for (const m of text.matchAll(/^A:(.+)$/gm)) {
-              arches.add(m[1].trim());
-            }
+            for (const m of text.matchAll(/^A:(.+)$/gm)) arches.add(m[1].trim());
             next();
           });
         } else {
@@ -71,6 +69,7 @@ async function getPkgarchFromAPK(target, subtarget) {
           next();
         }
       });
+
       extract.on('finish', () => resolve([...arches]));
       extract.on('error', reject);
 
@@ -89,9 +88,7 @@ async function getPkgarchFromPackagesGz(target, subtarget) {
     const { data } = await axios.get(url, { responseType: 'arraybuffer' });
     const text = zlib.gunzipSync(data).toString();
     const arches = new Set();
-    for (const m of text.matchAll(/^Architecture:\s*(.+)$/gm)) {
-      arches.add(m[1].trim());
-    }
+    for (const m of text.matchAll(/^Architecture:\s*(.+)$/gm)) arches.add(m[1].trim());
     return [...arches];
   } catch {
     return [];
@@ -115,21 +112,21 @@ async function getPkgarchFromIPK(target, subtarget) {
   }
 }
 
-// ---------------- MASTER ARCH DETECTOR ----------------
+/* ---------------- MASTER ARCH DETECTOR ---------------- */
+
 async function getPkgarchs(target, subtarget) {
-  // Попробуем APK
   let arches = await getPkgarchFromAPK(target, subtarget);
   if (arches.length) return arches;
 
-  // Попробуем Packages.gz
   arches = await getPkgarchFromPackagesGz(target, subtarget);
   if (arches.length) return arches;
 
-  // Фоллбек на IPK
-  return await getPkgarchFromIPK(target, subtarget);
+  arches = await getPkgarchFromIPK(target, subtarget);
+  return arches.length ? arches : ['unknown'];
 }
 
-// ---------------- MAIN ----------------
+/* ---------------- MAIN ---------------- */
+
 async function main() {
   try {
     const matrix = [];
@@ -140,18 +137,17 @@ async function main() {
         const subtargets = await getSubtargets(target);
         await Promise.all(subtargets.map(subtarget =>
           limit(async () => {
-            const pkgarchs = await getPkgarchs(target, subtarget);
-            for (const pkgarch of pkgarchs) {
-              matrix.push({ target, subtarget, pkgarch });
-            }
+            const arches = await getPkgarchs(target, subtarget);
+            for (const pkgarch of arches) matrix.push({ target, subtarget, pkgarch });
           })
         ));
       })
     ));
 
-    console.log(JSON.stringify({ include: matrix }));
+    // Одна строка — важно для GHA
+    process.stdout.write(JSON.stringify({ include: matrix }));
   } catch (err) {
-    console.error('Error:', err.message || err);
+    console.error(err.message || err);
     process.exit(1);
   }
 }
