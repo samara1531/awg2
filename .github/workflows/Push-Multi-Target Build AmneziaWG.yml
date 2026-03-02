@@ -6,7 +6,7 @@ on:
       openwrt_version:
         description: "OpenWrt version"
         required: true
-        default: "23.05.6"
+        default: "25.12-SNAPSHOT"
       amneziawg_version:
         description: "AmneziaWG version"
         required: true
