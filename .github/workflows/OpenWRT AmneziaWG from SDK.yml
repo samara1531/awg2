@@ -187,6 +187,8 @@ jobs:
         set -e -x
         cd openwrt
 
+        make package/kmod-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+
         make package/amneziawg-tools/{clean,download,prepare,compile} -j$(nproc)
 
         make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
