@@ -8,8 +8,6 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/amnezia-vpn/amneziawg-go.git
-PKG_MIRROR_HASH:=0a512a0254fe10c7e46ade63fd68e4c0df04f09f0b9c59ebd9d85ea95bda5fdc
-# Reference: master branch
 PKG_SOURCE_VERSION:=15cca2272a364dd4d8e01694adc45e567a923fe5
 PKG_MIRROR_HASH:=0a512a0254fe10c7e46ade63fd68e4c0df04f09f0b9c59ebd9d85ea95bda5fdc
 
