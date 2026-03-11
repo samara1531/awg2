@@ -28,12 +28,12 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Node.js dependencies
         run: |
@@ -56,12 +56,12 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: amneziawg
 
       - name: Checkout OpenWRT Packages repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         if: ${{ github.event.inputs.openwrt_version }}
         with:
           path: packages
