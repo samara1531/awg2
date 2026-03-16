@@ -166,9 +166,7 @@ jobs:
         echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
-        sed -i 's/CONFIG_PACKAGE_kmod-lib-zstd=y/# CONFIG_PACKAGE_kmod-lib-zstd is not set/' openwrt/.config
-        sed -i 's/CONFIG_PACKAGE_kmod-lib-xxhash=y/# CONFIG_PACKAGE_kmod-lib-xxhash is not set/' openwrt/.config
-        sed -i 's/CONFIG_PACKAGE_kmod-crypto-xxhash=y/# CONFIG_PACKAGE_kmod-crypto-xxhash is not set/' openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-xxhash=n" >> openwrt/.config
 
         if [ "${{ env.compile_go }}" = "true" ]; then
           rm -r openwrt/feeds/packages/lang/golang
