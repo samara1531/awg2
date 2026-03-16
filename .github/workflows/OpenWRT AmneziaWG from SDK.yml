@@ -184,7 +184,10 @@ jobs:
         echo "# CONFIG_PACKAGE_kmod-lib-xxhash is not set"   >> openwrt/.config
         echo "# CONFIG_PACKAGE_libxxhash is not set"         >> openwrt/.config
         echo "# CONFIG_PACKAGE_xxhash is not set"            >> openwrt/.config
-        sed -i '/xxhash\|crypto-xxhash/s/^/# DISABLED xxhash block: /' openwrt/package/kernel/linux/modules/crypto.mk
+        sed -i '/include.*crypto.mk/d' openwrt/package/kernel/linux/Makefile
+
+        echo "crypto.mk включён в Makefile ядра?"
+        grep -i crypto.mk openwrt/package/kernel/linux/Makefile || echo "→ отключён (это то, что нужно)"
         
         echo "=== Проверка после отключения xxhash ==="
         grep -i 'xxhash\|XXHASH' openwrt/.config || echo " .config чист по xxhash"
