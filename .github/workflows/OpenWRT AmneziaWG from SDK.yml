@@ -166,6 +166,9 @@ jobs:
         echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
+        sed -i 's/CONFIG_PACKAGE_kmod-lib-zstd=y/# CONFIG_PACKAGE_kmod-lib-zstd is not set/' openwrt/.config
+        sed -i 's/CONFIG_PACKAGE_kmod-lib-xxhash=y/# CONFIG_PACKAGE_kmod-lib-xxhash is not set/' openwrt/.config
+        sed -i 's/CONFIG_PACKAGE_kmod-crypto-xxhash=y/# CONFIG_PACKAGE_kmod-crypto-xxhash is not set/' openwrt/.config
 
         if [ "${{ env.compile_go }}" = "true" ]; then
           rm -r openwrt/feeds/packages/lang/golang
@@ -173,25 +176,6 @@ jobs:
         fi
         ./openwrt/scripts/feeds install -a
         make -C openwrt defconfig
-
-        sed -i '/CONFIG_CRYPTO_XXHASH=/d' openwrt/.config
-        echo "# CONFIG_CRYPTO_XXHASH is not set" >> openwrt/.config
-
-        sed -i '/define KernelPackage\/crypto-xxhash/,/$(eval $(call KernelPackage,crypto-xxhash))/d' openwrt/package/kernel/linux/modules/crypto.mk
-
-        echo "Отключаем все проблемные nginx-модули..."
-        for mod in headers-more naxsi njs rtmp stream ts ubus; do
-          sed -i "/PACKAGE_nginx-mod-${mod}/d" openwrt/.config
-          echo "# CONFIG_PACKAGE_nginx-mod-${mod} is not set" >> openwrt/.config
-        done
-
-        echo "=== Проверка после отключения xxhash и nginx ==="
-        grep -i 'xxhash\|XXHASH' openwrt/.config || echo "→ xxhash чисто"
-        grep -E 'nginx-mod-(headers-more|naxsi|njs|rtmp|stream|ts|ubus)' openwrt/.config || echo "→ nginx-модули отключены"
-
-        echo "=== crypto.mk проверка ==="
-        grep -C 5 -i 'xxhash\|crypto-xxhash' openwrt/package/kernel/linux/modules/crypto.mk || echo "→ блок удалён полностью"
-        echo "Подготовка SDK завершена успешно!"
 
     - name: Compile AmneziaWG packages
       env:
