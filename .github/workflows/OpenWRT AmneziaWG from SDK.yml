@@ -185,8 +185,9 @@ jobs:
         echo "# CONFIG_PACKAGE_libxxhash is not set"         >> openwrt/.config
         echo "# CONFIG_PACKAGE_xxhash is not set"            >> openwrt/.config
         sed -i '/define KernelPackage\/crypto-xxhash/,/$(eval $(call KernelPackage,crypto-xxhash))/d' openwrt/package/kernel/linux/modules/crypto.mk
-
-        for mod in njs rtmp stream ts ubus; do
+        
+        echo "Отключаем все проблемные nginx-модули..."
+        for mod in headers-more naxsi njs rtmp stream ts ubus; do
         sed -i "/PACKAGE_nginx-mod-${mod}/d" openwrt/.config
         echo "# CONFIG_PACKAGE_nginx-mod-${mod} is not set" >> openwrt/.config
         done
