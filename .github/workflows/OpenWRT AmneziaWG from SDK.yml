@@ -171,8 +171,17 @@ jobs:
           rm -r openwrt/feeds/packages/lang/golang
           cp -r packages/lang/golang openwrt/feeds/packages/lang
         fi
+
         ./openwrt/scripts/feeds install -a
-        rm -rf openwrt/package/kernel/kmod-crypto-xxhash
+
+        if grep -q '^CONFIG_CRYPTO_XXHASH=y' openwrt/.config; then
+           rm -rf openwrt/package/kernel/kmod-crypto-xxhash
+           rm -rf openwrt/build_dir/target-*/kmod-crypto-xxhash*
+           rm -rf openwrt/staging_dir/target-*/kmod-crypto-xxhash*
+           scripts/config --disable PACKAGE_kmod-crypto-xxhash
+           echo "CONFIG_PACKAGE_kmod-crypto-xxhash is built-in — package removed and caches cleaned"
+        fi
+
         make -C openwrt defconfig
 
     - name: Compile AmneziaWG packages
