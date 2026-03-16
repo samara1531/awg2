@@ -176,14 +176,22 @@ jobs:
 
         sed -i '/CONFIG_CRYPTO_XXHASH=/d' openwrt/.config
         echo "# CONFIG_CRYPTO_XXHASH is not set" >> openwrt/.config
-        sed -i '/xxhash/d' openwrt/package/kernel/linux/modules/crypto.mk
+        sed -i '/CONFIG_PACKAGE_kmod-crypto-xxhash/d' openwrt/.config
+        sed -i '/CONFIG_PACKAGE_kmod-lib-xxhash/d'   openwrt/.config
+        sed -i '/CONFIG_PACKAGE_libxxhash/d'         openwrt/.config
+        sed -i '/CONFIG_PACKAGE_xxhash/d'            openwrt/.config
+        echo "# CONFIG_PACKAGE_kmod-crypto-xxhash is not set" >> openwrt/.config
+        echo "# CONFIG_PACKAGE_kmod-lib-xxhash is not set"   >> openwrt/.config
+        echo "# CONFIG_PACKAGE_libxxhash is not set"         >> openwrt/.config
+        echo "# CONFIG_PACKAGE_xxhash is not set"            >> openwrt/.config
+        sed -i '/KernelPackage\/crypto-xxhash/,/)/d' openwrt/package/kernel/linux/modules/crypto.mk
 
-        echo "=== Проверка конфигурации после отключения xxhash ==="
-        echo "В .config:"
-        grep -i xxhash openwrt/.config || echo "  → xxhash не найден (это хорошо)"
+        echo "=== Проверка после отключения xxhash ==="
+        echo "В .config (ищем PACKAGE и CRYPTO):"
+        grep -i 'xxhash\|XXHASH' openwrt/.config || echo "  → ничего не найдено (идеально)"
         echo ""
         echo "В crypto.mk:"
-        grep -i xxhash openwrt/package/kernel/linux/modules/crypto.mk || echo "  → xxhash удалён из crypto.mk (пакет не будет генерироваться)"
+        grep -i 'xxhash\|crypto-xxhash' openwrt/package/kernel/linux/modules/crypto.mk || echo "  → блок удалён"
         echo "===================================================="
 
     - name: Compile AmneziaWG packages
