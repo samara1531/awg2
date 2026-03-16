@@ -175,7 +175,8 @@ jobs:
         rm -rf openwrt/package/kernel/kmod-crypto-xxhash
         rm -rf openwrt/build_dir/target-*/kmod-crypto-xxhash*
         rm -rf openwrt/staging_dir/target-*/kmod-crypto-xxhash*
-        scripts/config --disable PACKAGE_kmod-crypto-xxhash
+        openwrt/scripts/config --disable PACKAGE_kmod-crypto-xxhash
+
         ./openwrt/scripts/feeds install -a
 
         make -C openwrt defconfig
