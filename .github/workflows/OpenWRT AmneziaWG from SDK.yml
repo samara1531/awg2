@@ -172,7 +172,7 @@ jobs:
           cp -r packages/lang/golang openwrt/feeds/packages/lang
         fi
         ./openwrt/scripts/feeds install -a
-        ./scripts/config --disable PACKAGE_kmod-crypto-xxhash || true
+        rm -rf openwrt/package/kernel/kmod-crypto-xxhash
         make -C openwrt defconfig
 
     - name: Compile AmneziaWG packages
