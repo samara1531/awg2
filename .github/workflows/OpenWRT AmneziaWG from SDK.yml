@@ -175,13 +175,7 @@ jobs:
         rm -rf openwrt/package/kernel/kmod-crypto-xxhash
         rm -rf openwrt/build_dir/target-*/kmod-crypto-xxhash*
         rm -rf openwrt/staging_dir/target-*/kmod-crypto-xxhash*
-        CONFIG_SCRIPT=$(find openwrt -type f -name config | grep '/scripts/config$' | head -n1)
-        if [ -f "$CONFIG_SCRIPT" ]; then
-             "$CONFIG_SCRIPT" --disable PACKAGE_kmod-crypto-xxhash
-        else
-             echo "Ошибка: scripts/config не найден!" >&2
-             exit 1
-        fi
+        ./openwrt/scripts/config --disable PACKAGE_kmod-crypto-xxhash
 
         ./openwrt/scripts/feeds install -a
 
