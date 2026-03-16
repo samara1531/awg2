@@ -186,6 +186,8 @@ jobs:
       run: |
         set -e -x
         cd openwrt
+        ./openwrt/scripts/config --file openwrt/.config --disable PACKAGE_kmod-crypto-xxhash
+        make -C openwrt defconfig
 
         make package/kmod-amneziawg/{clean,download,prepare,compile} V=s -j$(nproc)
 
