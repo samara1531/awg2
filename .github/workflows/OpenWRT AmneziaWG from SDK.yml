@@ -163,10 +163,13 @@ jobs:
         echo "Feeds успешно обновлены"
 
         curl -fsL "$base_url/config.buildinfo" > openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
         echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
-        echo "CONFIG_PACKAGE_kmod-crypto-xxhash=n" >> openwrt/.config
 
         if [ "${{ env.compile_go }}" = "true" ]; then
           rm -r openwrt/feeds/packages/lang/golang
