@@ -184,15 +184,18 @@ jobs:
         echo "# CONFIG_PACKAGE_kmod-lib-xxhash is not set"   >> openwrt/.config
         echo "# CONFIG_PACKAGE_libxxhash is not set"         >> openwrt/.config
         echo "# CONFIG_PACKAGE_xxhash is not set"            >> openwrt/.config
-        sed -i '/crypto-xxhash/d' openwrt/package/kernel/linux/modules/crypto.mk
-        sed -i '/xxhash_generic/d' openwrt/package/kernel/linux/modules/crypto.mk
-
+        sed -i '/xxhash/d' openwrt/package/kernel/linux/modules/crypto.mk
+        
+        # Проверка
         echo "=== Проверка после отключения xxhash ==="
         echo "В .config (ищем PACKAGE и CRYPTO):"
-        grep -i 'xxhash\|XXHASH' openwrt/.config || echo "  → ничего не найдено (идеально)"
+        grep -i 'xxhash\|XXHASH' openwrt/.config || echo " → ничего не найдено (идеально)"
         echo ""
         echo "В crypto.mk:"
-        grep -i 'xxhash\|crypto-xxhash' openwrt/package/kernel/linux/modules/crypto.mk || echo "  → блок удалён"
+        grep -i 'xxhash\|crypto-xxhash' openwrt/package/kernel/linux/modules/crypto.mk || echo " → блок удалён"
+        echo ""
+        echo "Kernel config check:"
+        grep -i 'CONFIG_CRYPTO_XXHASH' openwrt/.config || echo " → CONFIG_CRYPTO_XXHASH не найден"
         echo "===================================================="
 
     - name: Compile AmneziaWG packages
