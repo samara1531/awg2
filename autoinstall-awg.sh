@@ -93,8 +93,8 @@ for pkg in \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
-    # ищем файл только по имени пакета, без расширения и ARCH
-    FILE="$(ls | grep "^$pkg-" | head -n1)"
+    # рекурсивный поиск файла внутри awgrelease/ и любых подпапок
+    FILE="$(find . -type f -name "$pkg-*" | head -n1)"
 
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
@@ -104,9 +104,9 @@ do
     echo "[+] Installing $FILE"
 
     if [ "$PM" = "opkg" ]; then
-        opkg install "./$FILE" || true
+        opkg install "$FILE" || true
     else
-        apk add --allow-untrusted "./$FILE" || true
+        apk add --allow-untrusted "$FILE" || true
     fi
 
     case "$pkg" in
