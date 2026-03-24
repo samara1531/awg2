@@ -94,7 +94,7 @@ for pkg in \
     luci-i18n-amneziawg-ru
 do
     # ищем рекурсивно любой файл, который начинается с имени пакета и за которым идёт _ или -
-    FILE="$(find . -type f \( -name "${pkg}_*" -o -name "${pkg}-*" \) | head -n1)"
+    FILE="$(find . -type f -path "*/awgrelease/*" \( -name "${pkg}_*" -o -name "${pkg}-*" \) | head -n1)"
 
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
