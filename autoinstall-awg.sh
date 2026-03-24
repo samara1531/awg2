@@ -31,7 +31,7 @@ wget -qO releases.json "$API" || {
     exit 1
 }
 
-# --- find ZIP strictly by release + target (без ARCH) ---
+# --- find ZIP strictly by release + target ---
 echo "[*] Searching matching build..."
 
 ZIP_URL="$(cat releases.json \
@@ -93,8 +93,8 @@ for pkg in \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
-    # ищем файлы рекурсивно внутри awgrelease/
-    FILE="$(find . -type f -name "$pkg-*.ipk" | head -n1)"
+    # ищем файл только по имени пакета, без расширения и ARCH
+    FILE="$(ls | grep "^$pkg-" | head -n1)"
 
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
