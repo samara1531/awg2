@@ -93,7 +93,7 @@ for pkg in \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
-    FILE="$(ls | grep "^$pkg-.*\.$PM$" | head -n1)"
+    FILE="$(ls | grep "^$pkg-.*\.ipk$" | head -n1)"
 
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
