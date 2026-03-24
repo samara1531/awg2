@@ -93,8 +93,8 @@ for pkg in \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
-    # рекурсивный поиск файла внутри awgrelease/ и любых подпапок
-    FILE="$(find . -type f -name "$pkg-*" | head -n1)"
+    # ищем рекурсивно любой файл, который начинается с имени пакета и за которым идёт _ или -
+    FILE="$(find . -type f \( -name "${pkg}_*" -o -name "${pkg}-*" \) | head -n1)"
 
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
