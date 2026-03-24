@@ -1,4 +1,8 @@
 #!/bin/sh
+# AWG auto installer (BusyBox / ash compatible)
+# Работает с SNAPSHOT, строго берёт текущий tag
+# unzip должен быть установлен вручную
+
 set -e
 
 REPO="samara1531/awg2"
@@ -10,6 +14,7 @@ cd "$TMP" || exit 1
 
 echo "[*] Detecting OpenWrt..."
 
+# --- system info ---
 . /etc/openwrt_release
 
 REL="$DISTRIB_RELEASE"
@@ -26,7 +31,7 @@ wget -qO releases.json "$API" || {
     exit 1
 }
 
-# --- find ZIP strictly by release + target (БЕЗ ARCH) ---
+# --- find ZIP strictly by release + target (без ARCH) ---
 echo "[*] Searching matching build..."
 
 ZIP_URL="$(cat releases.json \
