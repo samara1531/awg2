@@ -24,29 +24,6 @@ TARGET_DASH="$(echo "$TARGET" | tr '/' '-')"
 echo "[*] OpenWrt release: $REL"
 echo "[*] Target: $TARGET"
 
-# --- detect architecture (UNIVERSAL) ---
-echo "[*] Detecting architecture..."
-
-ARCH=""
-
-if command -v opkg >/dev/null 2>&1; then
-    ARCH="$(opkg print-architecture \
-        | awk '{print $2,$3}' \
-        | sort -k2 -nr \
-        | head -n1 \
-        | awk '{print $1}')"
-
-elif command -v apk >/dev/null 2>&1; then
-    ARCH="$(cat /etc/apk/arch 2>/dev/null)"
-fi
-
-if [ -z "$ARCH" ]; then
-    echo "❌ Cannot detect architecture"
-    exit 1
-fi
-
-echo "[*] Architecture: $ARCH"
-
 # --- fetch releases ---
 echo "[*] Fetching releases info..."
 wget -qO releases.json "$API" || {
@@ -54,7 +31,7 @@ wget -qO releases.json "$API" || {
     exit 1
 }
 
-# --- find ZIP strictly by release + target + arch ---
+# --- find ZIP strictly by release + target ---
 echo "[*] Searching matching build..."
 
 ZIP_URL="$(cat releases.json \
@@ -62,7 +39,6 @@ ZIP_URL="$(cat releases.json \
  | grep browser_download_url \
  | grep "/download/$REL/" \
  | grep "$TARGET_DASH" \
- | grep "$ARCH" \
  | grep '.zip' \
  | head -n1 \
  | cut -d'"' -f4)"
@@ -71,7 +47,6 @@ if [ -z "$ZIP_URL" ]; then
     echo "❌ No matching build for:"
     echo "   release: $REL"
     echo "   target : $TARGET_DASH"
-    echo "   arch   : $ARCH"
     exit 1
 fi
 
@@ -88,11 +63,6 @@ wget -qO awg.zip "$ZIP_URL" || {
 # --- unpack ---
 unzip -o awg.zip >/dev/null || {
     echo "❌ unzip не найден или ошибка распаковки. Установи unzip вручную"
-    exit 1
-}
-
-cd awgrelease 2>/dev/null || {
-    echo "❌ awgrelease directory missing"
     exit 1
 }
 
@@ -118,7 +88,8 @@ for pkg in \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
-    FILE="$(ls | grep "^$pkg-.*\.$PM$" | head -n1)"
+    # рекурсивный поиск любого файла внутри любой папки awgrelease
+    FILE="$(find "$TMP" -type f -path "*/awgrelease/*" \( -name "${pkg}_*" -o -name "${pkg}-*" \) | head -n1)"
 
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
@@ -128,9 +99,9 @@ do
     echo "[+] Installing $FILE"
 
     if [ "$PM" = "opkg" ]; then
-        opkg install "./$FILE" || true
+        opkg install "$FILE" || true
     else
-        apk add --allow-untrusted "./$FILE" || true
+        apk add --allow-untrusted "$FILE" || true
     fi
 
     case "$pkg" in
