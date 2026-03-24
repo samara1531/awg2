@@ -62,12 +62,7 @@ wget -qO awg.zip "$ZIP_URL" || {
 
 # --- unpack ---
 unzip -o awg.zip >/dev/null || {
-    echo "❌ unzip не найден или ошибка распаковки"
-    exit 1
-}
-
-cd awgrelease 2>/dev/null || {
-    echo "❌ awgrelease directory missing"
+    echo "❌ unzip не найден или ошибка распаковки. Установи unzip вручную"
     exit 1
 }
 
@@ -83,18 +78,19 @@ fi
 
 echo "[*] Installing packages via $PM"
 
-INST_KMOD=0
+INST_GO=0
 INST_TOOLS=0
 INST_LUCI=0
 
 for pkg in \
-    kmod-amneziawg \
+    amneziawg-go \
     amneziawg-tools \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
+    # рекурсивный поиск файла в любой подпапке awgrelease
     FILE="$(find "$TMP" -type f -path "*/awgrelease/*" \( -name "${pkg}_*" -o -name "${pkg}-*" \) | head -n1)"
-    
+
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
         continue
@@ -109,7 +105,7 @@ do
     fi
 
     case "$pkg" in
-        kmod-amneziawg) INST_KMOD=1 ;;
+        amneziawg-go) INST_GO=1 ;;
         amneziawg-tools) INST_TOOLS=1 ;;
         luci-proto-amneziawg) INST_LUCI=1 ;;
     esac
@@ -118,7 +114,7 @@ done
 echo
 echo "✅ AWG installation finished"
 
-if [ "$INST_KMOD" -eq 1 ] &&
+if [ "$INST_GO" -eq 1 ] &&
    [ "$INST_TOOLS" -eq 1 ] &&
    [ "$INST_LUCI" -eq 1 ]; then
     echo
