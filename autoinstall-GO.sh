@@ -76,6 +76,15 @@ else
     exit 1
 fi
 
+# --- обновляем индексы репозиториев ---
+if [ "$PM" = "opkg" ]; then
+    echo "[*] Updating opkg package lists..."
+    opkg update || echo "❌ Failed to update opkg lists, продолжаем"
+else
+    echo "[*] Updating apk package lists..."
+    apk update || echo "❌ Failed to update apk lists, продолжаем"
+fi
+
 echo "[*] Installing packages via $PM"
 
 INST_GO=0
@@ -88,7 +97,7 @@ for pkg in \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
-    # рекурсивный поиск любого файла внутри любой папки awgrelease
+    # рекурсивный поиск файла в любой подпапке awgrelease
     FILE="$(find "$TMP" -type f -path "*/awgrelease/*" \( -name "${pkg}_*" -o -name "${pkg}-*" \) | head -n1)"
 
     if [ -z "$FILE" ]; then
