@@ -76,14 +76,23 @@ else
     exit 1
 fi
 
+# --- обновляем индексы репозиториев ---
+if [ "$PM" = "opkg" ]; then
+    echo "[*] Updating opkg package lists..."
+    opkg update || echo "❌ Failed to update opkg lists, продолжаем"
+else
+    echo "[*] Updating apk package lists..."
+    apk update || echo "❌ Failed to update apk lists, продолжаем"
+fi
+
 echo "[*] Installing packages via $PM"
 
-INST_GO=0
+INST_KMOD=0
 INST_TOOLS=0
 INST_LUCI=0
 
 for pkg in \
-    amneziawg-go \
+    kmod-amneziawg \
     amneziawg-tools \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
@@ -105,7 +114,7 @@ do
     fi
 
     case "$pkg" in
-        amneziawg-go) INST_GO=1 ;;
+        kmod-amneziawg) INST_KMOD=1 ;;
         amneziawg-tools) INST_TOOLS=1 ;;
         luci-proto-amneziawg) INST_LUCI=1 ;;
     esac
@@ -114,7 +123,7 @@ done
 echo
 echo "✅ AWG installation finished"
 
-if [ "$INST_GO" -eq 1 ] &&
+if [ "$INST_KMOD" -eq 1 ] &&
    [ "$INST_TOOLS" -eq 1 ] &&
    [ "$INST_LUCI" -eq 1 ]; then
     echo
