@@ -93,8 +93,8 @@ for pkg in \
     luci-proto-amneziawg \
     luci-i18n-amneziawg-ru
 do
-    # ищем файлы именно с расширением .ipk
-    FILE="$(ls | grep "^$pkg-.*\.ipk$" | head -n1)"
+    # ищем файлы рекурсивно внутри awgrelease/
+    FILE="$(find . -type f -name "$pkg-*.ipk" | head -n1)"
 
     if [ -z "$FILE" ]; then
         echo "⚠ $pkg not found"
