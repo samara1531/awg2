@@ -13,3 +13,5 @@ jobs:
         run: |
             total_downloads=$(curl -s https://api.github.com/repos/samara1531/awg2/releases | jq '[.[] | .assets[]? | .download_count] | add')
             echo "Total downloads: $total_downloads"
+            total_downloads=$(curl -s https://api.github.com/repos/samara1531/opera-proxy/releases | jq '[.[] | .assets[]? | .download_count] | add')
+            echo "Total downloads: $total_downloads"
