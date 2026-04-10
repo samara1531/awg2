@@ -15,3 +15,7 @@ jobs:
             echo "Total downloads: $total_downloads"
             total_downloads=$(curl -s https://api.github.com/repos/samara1531/opera-proxy/releases | jq '[.[] | .assets[]? | .download_count] | add')
             echo "Total downloads: $total_downloads"
+            total_downloads=$(curl -s https://api.github.com/repos/samara1531/luci-app-xray/releases | jq '[.[] | .assets[]? | .download_count] | add')
+            echo "Total downloads: $total_downloads"
+            total_downloads=$(curl -s https://api.github.com/repos/samara1531/openwrt-xray/releases | jq '[.[] | .assets[]? | .download_count] | add')
+            echo "Total downloads: $total_downloads"
