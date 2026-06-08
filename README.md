@@ -35,6 +35,9 @@ wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-aw
 ```sh
 wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-GO.sh" | sh
 ```
+
+---------------
++ пакеты Luci-, Tools, GO, можно брать из более свежих релизов для вашей вресии врт, с последними правками. (24.10.1 -> 24.10.7)
 ---------------
 + Вручную 25.12.x
   - т.к. не разрешено пока по умолчанию ставить через вэб сторонние пакеты.
