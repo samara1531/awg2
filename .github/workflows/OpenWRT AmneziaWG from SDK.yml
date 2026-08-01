@@ -7,7 +7,7 @@ on:
         description: "OpenWrt version"
         type: string
         required: true
-        default: "25.12.2"
+        default: "25.12.5"
       amneziawg_version:
         description: "AmneziaWG version"
         type: string
@@ -17,17 +17,17 @@ on:
         description: "OpenWrt arch"
         type: string
         required: true
-        default: "x86_64"
+        default: "aarch64_cortex-a53"
       openwrt_target:
         description: "OpenWrt target"
         type: string
         required: true
-        default: "x86"
+        default: "mediatek"
       openwrt_subtarget:
         description: "OpenWrt subtarget"
         type: string
         required: true
-        default: "64"
+        default: "mt7622"
       compile_kmod:
         description: "Compile kernel module inplementation"
         type: boolean
