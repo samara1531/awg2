@@ -208,7 +208,7 @@ jobs:
           -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: openwrt-amneziawg-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}.zip
         path: awgrelease/
