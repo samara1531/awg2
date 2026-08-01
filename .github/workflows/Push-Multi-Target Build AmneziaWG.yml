@@ -194,7 +194,6 @@ jobs:
         env:
           compile_kmod: ${{ inputs.compile_kmod }}
           compile_go: ${{ inputs.compile_go }}
-        continue-on-error: true
         run: |
             cd openwrt
             set +e
