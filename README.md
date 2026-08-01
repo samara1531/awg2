@@ -42,5 +42,6 @@ wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-GO
   - т.к. не разрешено пока по умолчанию ставить через вэб сторонние пакеты.
   - вам придется каким-то образом закинуть файлы в папку /tmp/ на роутере (через прогу WinSCP)
   - и ставить пакеты командой `apk add --allow-untrusted /tmp/название_файла.apk`
+  - порядок установки: kmod - tools - luci
 ---------------
 [Inspired by](https://github.com/this-username-has-been-taken/amneziawg-openwrt)
