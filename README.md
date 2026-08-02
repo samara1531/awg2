@@ -43,5 +43,7 @@ wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-GO
   - вам придется каким-то образом закинуть файлы в папку /tmp/ на роутере (через прогу WinSCP)
   - и ставить пакеты командой `apk add --allow-untrusted /tmp/название_файла.apk`
   - порядок установки: kmod - tools - luci
+  - Либо дать разрешение на установку пакетов и установить их через вэб менеджер:
+  - `sed -i 's/action="add"/action="add --allow-untrusted"/' /usr/libexec/package-manager-call`
 ---------------
 [Inspired by](https://github.com/this-username-has-been-taken/amneziawg-openwrt)
