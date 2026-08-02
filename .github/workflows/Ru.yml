@@ -1,4 +1,4 @@
-name: Build OpenWRT AmneziaWG from SDK
+name: Build Ru SDK
 
 on:
   workflow_dispatch:
