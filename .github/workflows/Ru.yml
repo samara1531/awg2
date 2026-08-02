@@ -1,0 +1,205 @@
+name: Build OpenWRT AmneziaWG from SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      openwrt_version:
+        description: "OpenWrt version"
+        type: string
+        required: true
+        default: "25.12.5"
+      amneziawg_version:
+        description: "AmneziaWG version"
+        type: string
+        required: true
+        default: "main"
+      openwrt_arch:
+        description: "OpenWrt arch"
+        type: string
+        required: true
+        default: "x86_64"
+      openwrt_target:
+        description: "OpenWrt target"
+        type: string
+        required: true
+        default: "x86"
+      openwrt_subtarget:
+        description: "OpenWrt subtarget"
+        type: string
+        required: true
+        default: "64"
+      compile_kmod:
+        description: "Compile kernel module inplementation"
+        type: boolean
+        required: true
+        default: true
+      compile_go:
+        description: "Compile Go implementation"
+        type: boolean
+        required: true
+        default: true
+
+jobs:
+  build-amneziawg:
+    name: "Build AmneziaWG for OpenWrt: ${{ inputs.openwrt_version }} - ${{ inputs.openwrt_arch }} - ${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}"
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        path: amneziawg
+        ref: ${{ inputs.amneziawg_version }}
+        fetch-depth: 0
+
+    - name: Checkout OpenWRT Packages repository
+      uses: actions/checkout@v5
+      if: ${{ inputs.compile_go }}
+      with:
+        path: packages
+        repository: openwrt/packages
+        fetch-depth: 0
+
+    - name: Install additional packages
+      run: |
+        set -e -x
+        sudo apt-get update
+        sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools swig curl zip zstd
+
+    - name: Download and prepare SDK
+      env:
+        compile_go: ${{ inputs.compile_go }}
+      run: |
+        set -e -x
+        if [ "${{ inputs.openwrt_version }}" = "SNAPSHOT" ]; then
+          base_url="https://downloads.openwrt.org/snapshots/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/"
+        else
+          base_url="https://downloads.openwrt.org/releases/${{ inputs.openwrt_version }}/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/"
+        fi
+
+        # Flexible SDK detection for both .tar.xz (old releases) and .tar.zst (newer/snapshots)
+        sdk_url=$(curl -s "${base_url}" | grep -oE 'openwrt-sdk[^"]+\.(tar\.xz|tar\.zst)' | head -n1)
+
+        if [[ -z "$sdk_url" ]]; then
+          echo "SDK file not found in $base_url"
+          echo "Directory listing:"
+          curl -s "${base_url}" | grep -i sdk || true
+          exit 1
+        fi
+
+        echo "Downloading SDK: $sdk_url"
+
+        curl -fsLO "$base_url$sdk_url"
+
+        file_name=$(basename "$sdk_url")
+        case "$file_name" in
+          *.tar.zst)
+            tar --use-compress-program=unzstd -xf "$file_name"
+            ;;
+          *.tar.xz)
+            tar -xf "$file_name"
+            ;;
+        esac
+
+        rm -f openwrt-sdk*.tar.*
+        mv openwrt-sdk* openwrt
+
+
+        echo "src-cpy awgopenwrt ../amneziawg" >> openwrt/feeds.conf.default
+
+        # --- git настройки против early EOF ---
+        git config --global http.version HTTP/1.1
+        git config --global http.postBuffer 524288000
+        git config --global core.compression 0
+
+        # --- функция очистки повреждённых feeds ---
+        fix_broken_feeds() {
+          for d in openwrt/feeds/*; do
+            [ -d "$d/.git" ] || continue
+            git -C "$d" rev-parse HEAD >/dev/null 2>&1 || rm -rf "$d"
+          done
+        }
+
+        # --- переключение feeds на GitHub mirrors ---
+        switch_to_github_mirrors() {
+          echo "Переключаемся на GitHub mirrors..."
+
+          sed -i 's|https://git.openwrt.org/openwrt/openwrt.git|https://github.com/openwrt/openwrt.git|g' openwrt/feeds.conf.default
+          sed -i 's|https://git.openwrt.org/feed/packages.git|https://github.com/openwrt/packages.git|g' openwrt/feeds.conf.default
+          sed -i 's|https://git.openwrt.org/project/luci.git|https://github.com/openwrt/luci.git|g' openwrt/feeds.conf.default
+          sed -i 's|https://git.openwrt.org/feed/routing.git|https://github.com/openwrt/routing.git|g' openwrt/feeds.conf.default
+          sed -i 's|https://git.openwrt.org/feed/telephony.git|https://github.com/openwrt/telephony.git|g' openwrt/feeds.conf.default
+
+          rm -rf openwrt/feeds/*
+        }
+
+        # --- попытки обновления feeds ---
+        MAX_ATTEMPTS=10
+        attempt=1
+        switched=0
+
+        until ./openwrt/scripts/feeds update -a; do
+          if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+            echo "Ошибка: feeds update окончательно не удалось" >&2
+            exit 1
+          fi
+
+          echo "feeds update провалился ($attempt/$MAX_ATTEMPTS)"
+
+          fix_broken_feeds
+
+          # после 3 неудач переключаемся на GitHub mirror
+          if [ "$attempt" -eq 3 ] && [ "$switched" -eq 0 ]; then
+            switch_to_github_mirrors
+            switched=1
+          fi
+
+          sleep $((10 + RANDOM % 31))
+          attempt=$((attempt + 1))
+        done
+
+        echo "Feeds успешно обновлены"
+
+        curl -fsL "$base_url/config.buildinfo" > openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-kpp=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-crypto-lib-chacha20poly1305=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_kmod-amneziawg=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_amneziawg-go=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
+        echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
+
+        if [ "${{ env.compile_go }}" = "true" ]; then
+          rm -r openwrt/feeds/packages/lang/golang
+          cp -r packages/lang/golang openwrt/feeds/packages/lang
+        fi
+        ./openwrt/scripts/feeds install -a
+        make -C openwrt defconfig
+
+    - name: Compile AmneziaWG packages
+      env:
+        compile_kmod: ${{ inputs.compile_kmod }}
+        compile_go: ${{ inputs.compile_go }}
+      run: |
+        set -e -x
+        cd openwrt
+
+        make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
+
+    - name: Prepare artifacts
+      run: |
+        set -e -x
+        mkdir -p awgrelease
+        find "openwrt/bin/targets/${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}/packages" \
+          -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
+
+        find "openwrt/bin/packages" \
+          -type f -name '*amneziawg*' -exec cp {} awgrelease/ \; 2>/dev/null || true
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: openwrt-amneziawg-${{ inputs.openwrt_version }}_${{ inputs.openwrt_arch }}_${{ inputs.openwrt_target }}_${{ inputs.openwrt_subtarget }}.zip
+        path: awgrelease/
