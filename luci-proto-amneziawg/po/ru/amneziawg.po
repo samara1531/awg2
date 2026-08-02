@@ -110,7 +110,7 @@ msgid "Fifth special junk packet signature."
 msgstr "Сигнатура пятого special junk пакета."
 
 msgid "Header Protection Key"
-msgstr "Ключ защиты заголовков"
+msgstr "Header Protection Key"
 
 msgid ""
 "AmneziaWG 3.0. Base64-encoded key used to encrypt the low entropy packet "
@@ -125,7 +125,7 @@ msgid "Generate new header protection key"
 msgstr "Сгенерировать новый ключ защиты заголовков"
 
 msgid "Content Padding Addition"
-msgstr "Дополнительное заполнение содержимого"
+msgstr "Content Padding Addition"
 
 msgid ""
 "AmneziaWG 3.0. Additional padding added to transport packets, in bytes. A "
@@ -135,7 +135,7 @@ msgstr ""
 "значение или диапазон <em>минимум-максимум</em>."
 
 msgid "Rekey After Time"
-msgstr "Время до смены ключа"
+msgstr "Rekey After Time"
 
 msgid ""
 "AmneziaWG 3.0. Seconds after which a new handshake is initiated. A single "
@@ -145,7 +145,7 @@ msgstr ""
 "значение или диапазон <em>минимум-максимум</em>. По умолчанию 120."
 
 msgid "Rekey Timeout"
-msgstr "Тайм-аут смены ключа"
+msgstr "Rekey Timeout"
 
 msgid ""
 "AmneziaWG 3.0. Seconds after which an unanswered handshake is repeated. A "
@@ -155,7 +155,7 @@ msgstr ""
 "ответа. Одно значение или диапазон <em>минимум-максимум</em>. По умолчанию 5."
 
 msgid "Reject After Time"
-msgstr "Время до отклонения сессии"
+msgstr "Reject After Time"
 
 msgid ""
 "AmneziaWG 3.0. Seconds after which a session key is not used anymore. A "
@@ -175,7 +175,7 @@ msgstr ""
 "alive. Одно значение или диапазон <em>минимум-максимум</em>. По умолчанию 10."
 
 msgid "Max Handshake Attempts"
-msgstr "Максимум попыток рукопожатия"
+msgstr "Max Handshake Attempts"
 
 msgid ""
 "AmneziaWG 3.0. Number of handshake retries before giving up. A single value "
