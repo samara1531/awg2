@@ -32,25 +32,28 @@ wget -qO releases.json "$API" || {
 }
 
 # --- find ZIP strictly by release + target ---
+
 echo "[*] Searching matching build..."
 
 ZIP_URL=""
 
-# Только для OpenWrt 24.10.8 используем тег _v3.0
-if [ "$REL" = "24.10.8" ]; then
-    echo "[*] OpenWrt 24.10.8 detected, searching 24.10.8_v3.0 release..."
+# Для OpenWrt 24.10.8 и 23.05.6 сначала ищем релиз _v3.0
+case "$REL" in
+    24.10.8|23.05.6)
+        echo "[*] OpenWrt $REL detected, searching ${REL}_v3.0 release..."
 
-    ZIP_URL="$(cat releases.json \
-     | tr ',' '\n' \
-     | grep browser_download_url \
-     | grep "/download/${REL}_v3.0/" \
-     | grep "$TARGET_DASH" \
-     | grep '.zip' \
-     | head -n1 \
-     | cut -d'"' -f4)"
-fi
+        ZIP_URL="$(cat releases.json \
+         | tr ',' '\n' \
+         | grep browser_download_url \
+         | grep "/download/${REL}_v3.0/" \
+         | grep "$TARGET_DASH" \
+         | grep '.zip' \
+         | head -n1 \
+         | cut -d'"' -f4)"
+        ;;
+esac
 
-# Для остальных версий или если v3.0 не найден
+# Для остальных версий (или если _v3.0 не найден) используем обычный тег
 if [ -z "$ZIP_URL" ]; then
     ZIP_URL="$(cat releases.json \
      | tr ',' '\n' \
