@@ -1,4 +1,4 @@
-name: Build Ru SDK
+name: Build Ru i18 SDK
 
 on:
   workflow_dispatch:
