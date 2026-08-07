@@ -1,4 +1,4 @@
-name: Build OpenWRT AmneziaWG from SDK
+name: Build solo AmneziaWG from SDK
 
 on:
   workflow_dispatch:
