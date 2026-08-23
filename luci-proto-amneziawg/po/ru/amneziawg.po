@@ -155,7 +155,7 @@ msgstr ""
 "ответа. Одно значение или диапазон <em>минимум-максимум</em>. По умолчанию 5."
 
 msgid "Reject After Time"
-msgstr "ВReject After Time"
+msgstr "Reject After Time"
 
 msgid ""
 "AmneziaWG 3.0. Seconds after which a session key is not used anymore. A "
