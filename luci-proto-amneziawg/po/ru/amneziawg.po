@@ -266,7 +266,7 @@ msgid "Download peer configuration file"
 msgstr "Скачать файл конфигурации пира"
 
 msgid "Random Trailers"
-msgstr "Случайные хвосты"
+msgstr "Random Trailers"
 
 msgid ""
 "AmneziaWG 3.1. Append a random length trailer of extra bytes to packets so "
