@@ -3,7 +3,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=amneziawg-go
-PKG_VERSION:=3.0.20260805
+PKG_VERSION:=3.1.20260814
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
