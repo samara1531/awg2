@@ -278,8 +278,8 @@ jobs:
             zip -r "$ZIP_NAME" awgrelease
 
             gh release create "${{ inputs.openwrt_version }}" \
-              --title "OpenWRT AWG-3.0 - ${{ inputs.openwrt_version }}" \
-              --notes "AmneziaWG 3.0 OpenWRT" \
+              --title "OpenWRT AWG-3.1 - ${{ inputs.openwrt_version }}" \
+              --notes "AmneziaWG 3.1 OpenWRT" \
               --repo "${{ github.repository }}" || true
 
             gh release upload "${{ inputs.openwrt_version }}" "$ZIP_NAME" \
