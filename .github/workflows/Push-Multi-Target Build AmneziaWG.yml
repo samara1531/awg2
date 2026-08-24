@@ -182,11 +182,18 @@ jobs:
             echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
 
             if [ "${{ env.compile_go }}" = "true" ]; then
-              rm -r openwrt/feeds/packages/lang/golang
-              cp -r packages/lang/golang openwrt/feeds/packages/lang
+              echo "=== REPLACING GOLANG ==="
+              rm -rf openwrt/feeds/packages/lang/golang
+              cp -a packages/lang/golang openwrt/feeds/packages/lang/
+              echo "=== GOLANG MAKEFILE ==="
+              grep -E 'PKG_VERSION|PKG_RELEASE' openwrt/feeds/packages/lang/golang/Makefile | head
             fi
+
             ./openwrt/scripts/feeds install -a
             make -C openwrt defconfig
+
+            echo "=== INSTALLED GO ==="
+            find openwrt/staging_dir/hostpkg/lib -path '*/bin/go' -type f -exec {} version \;
 
       - name: Compile AWG packages
         env:
