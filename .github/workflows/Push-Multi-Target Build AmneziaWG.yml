@@ -62,7 +62,7 @@ jobs:
 
       - name: Checkout OpenWRT Packages repository
         uses: actions/checkout@v5
-        if: ${{ github.event.inputs.openwrt_version }}
+        if: ${{ inputs.compile_go }}
         with:
           path: packages
           repository: openwrt/packages
