@@ -64,7 +64,7 @@ jobs:
         with:
           path: packages
           repository: openwrt/packages
-          ref: openwrt-25.12          # совместимая ветка с golang ≥ 1.25
+          ref: openwrt-25.12
           fetch-depth: 0
 
       - name: Install dependencies
@@ -173,23 +173,9 @@ jobs:
           echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
 
-          # ===== Подмена golang (ветка openwrt-25.12) =====
-          if [ "$COMPILE_GO" = "true" ]; then
-            echo "=== REPLACING GOLANG ==="
-            if [ ! -d packages/lang/golang ]; then
-              echo "ERROR: packages/lang/golang not found"
-              exit 1
-            fi
-
-            rm -rf openwrt/feeds/packages/lang/golang
-            cp -a packages/lang/golang openwrt/feeds/packages/lang/
-
-            echo "=== GOLANG VERSION ==="
-            grep -E 'GO_VERSION_MAJOR_MINOR|GO_VERSION_PATCH|PKG_VERSION' \
-              openwrt/feeds/packages/lang/golang/golang/Makefile \
-              openwrt/feeds/packages/lang/golang/Makefile 2>/dev/null | head -15 || true
-
-            ./openwrt/scripts/feeds install -a -p packages || true
+          if [ "${{ env.compile_go }}" = "true" ]; then
+              rm -rf openwrt/feeds/packages/lang/golang
+              cp -r packages/lang/golang openwrt/feeds/packages/lang
           fi
 
           ./openwrt/scripts/feeds install -a
@@ -212,12 +198,9 @@ jobs:
           make package/luci-proto-amneziawg/{clean,download,prepare,compile} -j$(nproc)
           LUCI_STATUS=$?
 
-          if [ "$COMPILE_GO" = "true" ]; then
-            echo "=== Building host golang ==="
-            make package/golang/host/{clean,compile} V=s -j$(nproc) || true
 
-            echo "=== Building amneziawg-go ==="
-            make package/amneziawg-go/{clean,download,prepare,compile} V=s -j$(nproc) \
+          if [ "$compile_go" = "true" ]; then
+            make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
               || echo "amneziawg-go failed — continuing anyway"
           fi
 
