@@ -173,9 +173,10 @@ jobs:
           echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
 
-          if [ "${{ env.compile_go }}" = "true" ]; then
-              rm -rf openwrt/feeds/packages/lang/golang
-              cp -r packages/lang/golang openwrt/feeds/packages/lang
+          if [ "${{ github.event.inputs.compile_go }}" = "true" ]; then
+            echo "=== REPLACING GOLANG ==="
+            rm -rf openwrt/feeds/packages/lang/golang
+            cp -a packages/lang/golang openwrt/feeds/packages/lang/
           fi
 
           ./openwrt/scripts/feeds install -a
@@ -199,7 +200,7 @@ jobs:
           LUCI_STATUS=$?
 
 
-          if [ "$compile_go" = "true" ]; then
+          if [ "$COMPILE_GO" = "true" ]; then          # ← тот же регистр
             make package/amneziawg-go/{clean,download,prepare,compile} -j$(nproc) \
               || echo "amneziawg-go failed — continuing anyway"
           fi
