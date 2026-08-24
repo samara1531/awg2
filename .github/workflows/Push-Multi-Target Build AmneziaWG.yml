@@ -64,6 +64,7 @@ jobs:
         with:
           path: packages
           repository: openwrt/packages
+          ref: openwrt-25.12          # совместимая ветка с golang ≥ 1.25
           fetch-depth: 0
 
       - name: Install dependencies
@@ -172,7 +173,7 @@ jobs:
           echo "CONFIG_PACKAGE_amneziawg-tools=y" >> openwrt/.config
           echo "CONFIG_PACKAGE_luci-proto-amneziawg=y" >> openwrt/.config
 
-          # ===== Надёжная подмена golang (multi-version safe) =====
+          # ===== Подмена golang (ветка openwrt-25.12) =====
           if [ "$COMPILE_GO" = "true" ]; then
             echo "=== REPLACING GOLANG ==="
             if [ ! -d packages/lang/golang ]; then
@@ -183,25 +184,11 @@ jobs:
             rm -rf openwrt/feeds/packages/lang/golang
             cp -a packages/lang/golang openwrt/feeds/packages/lang/
 
-            echo "=== GOLANG STRUCTURE AFTER REPLACE ==="
-            find openwrt/feeds/packages/lang/golang -maxdepth 2 -type f -name 'Makefile' | sort
+            echo "=== GOLANG VERSION ==="
+            grep -E 'GO_VERSION_MAJOR_MINOR|GO_VERSION_PATCH|PKG_VERSION' \
+              openwrt/feeds/packages/lang/golang/golang/Makefile \
+              openwrt/feeds/packages/lang/golang/Makefile 2>/dev/null | head -15 || true
 
-            echo "=== GOLANG VERSION INFO ==="
-            grep -rE 'GO_VERSION_MAJOR_MINOR|GO_VERSION_PATCH|GO_DEFAULT_VERSION|PKG_VERSION' \
-              openwrt/feeds/packages/lang/golang/ --include='Makefile' --include='*.mk' 2>/dev/null | head -40 || true
-
-            # Важно: сначала регистрируем versioned-пакеты, потом default
-            echo "=== Re-indexing packages feed ==="
-            rm -f openwrt/tmp/.packageinfo openwrt/tmp/.packageavail 2>/dev/null || true
-            rm -f openwrt/feeds/packages.index openwrt/feeds/packages.tmp 2>/dev/null || true
-
-            # Сначала versioned + bootstrap
-            ./openwrt/scripts/feeds install -p packages golang1.27 2>/dev/null || true
-            ./openwrt/scripts/feeds install -p packages golang-bootstrap 2>/dev/null || true
-            # Потом default golang (он зависит от golang1.27/host)
-            ./openwrt/scripts/feeds install -p packages golang 2>/dev/null || true
-
-            # Полная переустановка packages
             ./openwrt/scripts/feeds install -a -p packages || true
           fi
 
@@ -226,10 +213,8 @@ jobs:
           LUCI_STATUS=$?
 
           if [ "$COMPILE_GO" = "true" ]; then
-            echo "=== Building host golang first ==="
-            # Пробуем собрать именно versioned host
-            make package/golang1.27/host/{clean,download,prepare,compile} V=s -j$(nproc) || \
-            make package/golang/host/{clean,download,prepare,compile} V=s -j$(nproc) || true
+            echo "=== Building host golang ==="
+            make package/golang/host/{clean,compile} V=s -j$(nproc) || true
 
             echo "=== Building amneziawg-go ==="
             make package/amneziawg-go/{clean,download,prepare,compile} V=s -j$(nproc) \
