@@ -58,13 +58,38 @@ jobs:
           ref: ${{ github.event.inputs.amneziawg_version }}
           fetch-depth: 0
 
+      - name: Determine packages branch
+        id: packages-branch
+        run: |
+          VERSION="${{ github.event.inputs.openwrt_version }}"
+          case "$VERSION" in
+            SNAPSHOT)
+              BRANCH="master"
+              ;;
+            24.10*)
+              BRANCH="openwrt-24.10"
+              ;;
+            25.12*)
+              BRANCH="openwrt-25.12"
+              ;;
+            23.05*)
+              BRANCH="openwrt-23.05"
+              ;;
+            *)
+              echo "Unknown OpenWrt version: $VERSION, falling back to master"
+              BRANCH="master"
+              ;;
+          esac
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Using packages branch: $BRANCH"
+
       - name: Checkout OpenWRT Packages repository
         if: ${{ github.event.inputs.compile_go == 'true' }}
         uses: actions/checkout@v5
         with:
           path: packages
           repository: openwrt/packages
-          ref: openwrt-25.12
+          ref: ${{ steps.packages-branch.outputs.branch }}
           fetch-depth: 0
 
       - name: Install dependencies
