@@ -3,7 +3,7 @@ include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=kmod-amneziawg
 
-PKG_VERSION:=3.1.20260812
+PKG_VERSION:=3.1.20260827
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
