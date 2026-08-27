@@ -120,11 +120,37 @@ jobs:
           sudo apt-get install -y python3-pyelftools python3-dev python3-setuptools \
             swig curl zip zstd jq unzip build-essential libelf-dev
 
+
+      - name: Determine packages branch
+        id: packages-branch
+        run: |
+          VERSION="${{ inputs.openwrt_version }}"
+          case "$VERSION" in
+            SNAPSHOT)
+              BRANCH="master"
+              ;;
+            24.10*)
+              BRANCH="openwrt-24.10"
+              ;;
+            25.12*)
+              BRANCH="openwrt-25.12"
+              ;;
+            23.05*)
+              BRANCH="openwrt-23.05"
+              ;;
+            *)
+              echo "Unknown OpenWrt version: $VERSION, falling back to master"
+              BRANCH="master"
+              ;;
+          esac
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Using packages branch: $BRANCH"
+
       - name: Checkout Wrt packages
         uses: actions/checkout@v5
         with:
           repository: openwrt/packages
-          ref: openwrt-25.12
+          ref: ${{ steps.packages-branch.outputs.branch }}
           path: packages
 
       - name: Download and prepare SDK
