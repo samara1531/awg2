@@ -91,7 +91,7 @@ jobs:
 
           FILTERED=$(jq -c --argjson existing "$(printf '%s\n' "${EXISTING[@]}" | jq -R . | jq -s .)" '
             .include |= map(select(
-              "OpenWRT-awg-2-${{ inputs.openwrt_version }}-\(.target)-\(.subtarget)-\(.pkgarch).zip" as $need
+              "OpenWRT-awg-3-${{ inputs.openwrt_version }}-\(.target)-\(.subtarget)-\(.pkgarch).zip" as $need
               | ($existing | index($need)) == null
             ))
           ' <<< "$ORIGINAL")
