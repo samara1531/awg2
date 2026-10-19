@@ -33,7 +33,10 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install axios cheerio
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm cache clean --force
+          npm ci --prefer-online
 
       - name: Generate build matrix
         id: set-matrix
