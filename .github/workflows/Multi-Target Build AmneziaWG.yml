@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm config set registry https://registry.npmjs.org/
-          npm ci --prefer-online
+          npm install axios cheerio @actions/core
 
       - name: Generate build matrix
         id: set-matrix
