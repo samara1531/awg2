@@ -42,7 +42,7 @@ on:
 jobs:
   build-amneziawg:
     name: "Build AmneziaWG for OpenWrt: ${{ inputs.openwrt_version }} - ${{ inputs.openwrt_arch }} - ${{ inputs.openwrt_target }}/${{ inputs.openwrt_subtarget }}"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
