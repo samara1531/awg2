@@ -28,4 +28,3 @@ awgrelease/
 # === System cruft ===
 .DS_Store
 Thumbs.db
-package-lock.json
