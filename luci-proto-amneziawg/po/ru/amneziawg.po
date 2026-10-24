@@ -284,3 +284,8 @@ msgid ""
 msgstr ""
 "AmneziaWG 3.1. Прекращает отправку ответных cookie-сообщений WireGuard, убирая "
 "характерный тип пакетов. Предполагается включение на обеих сторонах туннеля."
+
+msgid ""
+"Optional. Create the host routes to peers via this interface. If empty, the interface with the most specific route to the peer endpoint is used, usually the WAN. It must have a route for the address family of the peer endpoints."
+msgstr ""
+"Необязательно. Создаёт маршруты до узлов (peers) через этот интерфейс. Если поле оставить пустым, будет использоваться интерфейс с наиболее специфичным маршрутом к адресу узла (обычно WAN). Этот интерфейс должен иметь маршрут для того же семейства IP-адресов, что и адреса узлов."
