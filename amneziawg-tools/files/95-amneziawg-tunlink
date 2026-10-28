@@ -1,7 +1,12 @@
-#!/bin/sh
-# Restore AmneziaWG endpoint host routes when an explicitly linked interface returns.
 
-[ "$ACTION" = "ifup" ] || [ "$ACTION" = "ifupdate" ] || exit 0
+#!/bin/sh
+# Restore AmneziaWG endpoint host routes when tunlink returns.
+
+case "$ACTION" in
+	ifup|ifupdate) ;;
+	*) exit 0 ;;
+esac
+
 [ -n "$INTERFACE" ] || exit 0
 
 . /lib/functions.sh
@@ -15,26 +20,49 @@ config_load network
 amneziawg_restore_tunlink_routes() {
 	local section="$1"
 	local proto tunlink nohostroute device
+	local endpoints_file parsed_file
 
 	config_get proto "$section" proto
 	[ "$proto" = "amneziawg" ] || return 0
+
 	config_get tunlink "$section" tunlink
 	[ "$tunlink" = "$INTERFACE" ] || return 0
+
+	ip link show dev "$section" >/dev/null 2>&1 || return 0
+
+	# Remove previously registered routes even if nohostroute was enabled.
+	proto_amneziawg_remove_host_routes "$section" || return 0
+
 	config_get_bool nohostroute "$section" nohostroute 0
 	[ "$nohostroute" = "1" ] && return 0
 
-	ip link show dev "$section" >/dev/null 2>&1 || return 0
 	network_get_device device "$tunlink" || return 0
 	[ -n "$device" ] || return 0
 
-	# Remove stale registrations first, then resolve each endpoint to its current route.
-	proto_amneziawg_remove_host_routes "$section" || return 0
-	"$AWG" show "$section" endpoints | \
-		sed -E 's/\[?([0-9a-fA-F:.]+)\]?:([0-9]+)/\1 \2/' | \
-	while IFS="$IFS" read -r key address port; do
-		[ -n "$port" ] || continue
-		proto_amneziawg_add_host_route "$section" "$address" "$tunlink" "$device" || exit 1
-	done
+	endpoints_file="$(mktemp /tmp/amneziawg-endpoints.XXXXXX)" || return 0
+	parsed_file="$(mktemp /tmp/amneziawg-parsed.XXXXXX)" || {
+		rm -f "$endpoints_file"
+		return 0
+	}
+
+	if ! "$AWG" show "$section" endpoints > "$endpoints_file"; then
+		rm -f "$endpoints_file" "$parsed_file"
+		return 0
+	fi
+
+	sed -E 's/\[?([0-9a-fA-F:.]+)\]?:([0-9]+)/\1 \2/' \
+		"$endpoints_file" > "$parsed_file"
+
+	while read -r key address port; do
+		[ -n "$address" ] && [ -n "$port" ] || continue
+
+		proto_amneziawg_add_host_route \
+			"$section" "$address" "$tunlink" "$device" || \
+			logger -t amneziawg \
+				"warning: failed to restore endpoint route for ${section}: ${address}"
+	done < "$parsed_file"
+
+	rm -f "$endpoints_file" "$parsed_file"
 }
 
 config_foreach amneziawg_restore_tunlink_routes interface
