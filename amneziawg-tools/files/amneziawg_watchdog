@@ -1,3 +1,4 @@
+
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
 #
@@ -14,6 +15,12 @@
 # shellcheck disable=SC1091,SC3043
 
 . /lib/functions.sh
+. /lib/functions/network.sh
+
+INCLUDE_ONLY=1
+. /lib/netifd/proto/amneziawg.sh
+
+AWG=/usr/bin/awg
 
 check_peer_activity() {
   local cfg="$1"
@@ -25,45 +32,72 @@ check_peer_activity() {
   local persistent_keepalive
   local last_handshake
   local idle_seconds
+  local tunlink
+  local nohostroute
+  local device
 
   config_get_bool disabled "${cfg}" "disabled" 0
-  config_get public_key    "${cfg}" "public_key"
+  config_get public_key "${cfg}" "public_key"
   config_get endpoint_host "${cfg}" "endpoint_host"
   config_get endpoint_port "${cfg}" "endpoint_port"
 
   if [ "${disabled}" -eq 1 ]; then
-    # skip disabled peers
     return 0
   fi
 
   persistent_keepalive=$(awg show "${iface}" persistent-keepalive | grep "${public_key}" | awk '{print $2}')
 
-  # only process peers with endpoints and keepalive set
-  [ -z "${endpoint_host}" ] && return 0;
-  if [ -z "${persistent_keepalive}" ] || [ "${persistent_keepalive}" = "off" ]; then return 0; fi
+  [ -z "${endpoint_host}" ] && return 0
+  if [ -z "${persistent_keepalive}" ] || [ "${persistent_keepalive}" = "off" ]; then
+    return 0
+  fi
 
-  # skip IP addresses
-  # check taken from packages/net/ddns-scripts/files/dynamic_dns_functions.sh
+  # Skip IP addresses.
   local IPV4_REGEX="[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
   local IPV6_REGEX="\(\([0-9A-Fa-f]\{1,4\}:\)\{1,\}\)\(\([0-9A-Fa-f]\{1,4\}\)\{0,1\}\)\(\(:[0-9A-Fa-f]\{1,4\}\)\{1,\}\)"
   local IPV4 IPV6
-  IPV4="$(echo "${endpoint_host}" | grep -m 1 -o "$IPV4_REGEX$")"    # do not detect ip in 0.0.0.0.example.com
+  IPV4="$(echo "${endpoint_host}" | grep -m 1 -o "$IPV4_REGEX$")"
   IPV6="$(echo "${endpoint_host}" | grep -m 1 -o "$IPV6_REGEX")"
-  [ -n "${IPV4}${IPV6}" ] && return 0;
+  [ -n "${IPV4}${IPV6}" ] && return 0
 
-  # re-resolve endpoint hostname if not responding for too long
+  # Re-resolve endpoint hostname if it has not responded for too long.
   last_handshake=$(awg show "${iface}" latest-handshakes | grep "${public_key}" | awk '{print $2}')
-  [ -z "${last_handshake}" ] && return 0;
+  [ -z "${last_handshake}" ] && return 0
+
   idle_seconds=$(($(date +%s)-${last_handshake}))
-  [ ${idle_seconds} -lt 150 ] && return 0;
+  [ "${idle_seconds}" -lt 150 ] && return 0
+
   logger -t "amneziawg_monitor" "${iface} endpoint ${endpoint_host}:${endpoint_port} is not responding for ${idle_seconds} seconds, trying to re-resolve hostname"
-  awg set "${iface}" peer "${public_key}" endpoint "${endpoint_host}:${endpoint_port}"
+
+  awg set "${iface}" peer "${public_key}" endpoint "${endpoint_host}:${endpoint_port}" || return 1
+
+  # Update helper-managed routes if hostname resolution changed the endpoint IP.
+  config_get tunlink "${iface}" "tunlink"
+  config_get_bool nohostroute "${iface}" "nohostroute" 0
+
+  if [ -n "${tunlink}" ] && [ "${nohostroute}" != "1" ]; then
+    network_get_device device "${tunlink}"
+
+    if [ -n "${device}" ]; then
+      proto_amneziawg_remove_host_routes "${iface}"
+
+      "${AWG}" show "${iface}" endpoints |
+        sed -E 's/\[?([0-9a-fA-F:.]+)\]?:([0-9]+)/\1 \2/' |
+      while IFS="$IFS" read -r key address port; do
+        [ -n "${port}" ] || continue
+        proto_amneziawg_add_host_route "${iface}" "${address}" "${tunlink}" "${device}" || exit 1
+      done
+    fi
+  fi
 }
 
-# query ubus for all active wireguard interfaces
-awg_ifaces=$(ubus -S call network.interface dump | jsonfilter -e '@.interface[@.up=true]' | jsonfilter -a -e '@[@.proto="amneziawg"].interface' | tr "\n" " ")
+# Query ubus for all active AmneziaWG interfaces.
+awg_ifaces=$(ubus -S call network.interface dump |
+  jsonfilter -e '@.interface[@.up=true]' |
+  jsonfilter -a -e '@[@.proto="amneziawg"].interface' |
+  tr "\n" " ")
 
-# check every peer in every active wireguard interface
+# Check every peer on every active interface.
 config_load network
 for iface in $awg_ifaces; do
   config_foreach check_peer_activity "amneziawg_${iface}" "${iface}"
