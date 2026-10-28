@@ -1,3 +1,4 @@
+
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=amneziawg-tools
@@ -45,6 +46,9 @@ define Package/amneziawg-tools/install
 	$(INSTALL_BIN) ./files/amneziawg_watchdog $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/lib/netifd/proto
 	$(INSTALL_BIN) ./files/amneziawg.sh $(1)/lib/netifd/proto/
+
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface
+	$(INSTALL_BIN) ./files/95-amneziawg-tunlink $(1)/etc/hotplug.d/iface/95-amneziawg-tunlink
 endef
 
 $(eval $(call BuildPackage,amneziawg-tools))
