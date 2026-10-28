@@ -432,18 +432,57 @@ proto_amneziawg_setup() {
 
 	# Endpoint reachability: explicitly install host routes through tunlink.
 	if [ "$nohostroute" != "1" ]; then
-		${AWG} show "$config" endpoints |
-			sed -E 's/\[?([0-9a-fA-F:.]+)\]?:([0-9]+)/\1 \2/' |
-		while IFS="$	 " read -r key address port; do
-			[ -n "$port" ] || continue
+		local endpoints_file endpoints_status
+		endpoints_file="$(mktemp /tmp/amneziawg-endpoints.XXXXXX)" || {
+			proto_setup_failed "$config"
+			exit 1
+		}
+
+		if ! "$AWG" show "$config" endpoints > "$endpoints_file"; then
+			rm -f "$endpoints_file"
+			proto_setup_failed "$config"
+			exit 1
+		fi
+
+		while read -r key endpoint; do
+			[ -n "$endpoint" ] || continue
+
+			case "$endpoint" in
+				\[*\]:*)
+					address="${endpoint#\[}"
+					address="${address%%\]*}"
+					;;
+				*:*)
+					address="${endpoint%:*}"
+					;;
+				*)
+					address="$endpoint"
+					;;
+			esac
+
+			[ -n "$address" ] || continue
+
 			if [ -n "$tunlink" ] && [ -n "$tunlink_device" ]; then
 				proto_amneziawg_add_host_route \
-					"$config" "$address" "$tunlink" "$tunlink_device" || exit 1
+					"$config" "$address" "$tunlink" "$tunlink_device" || {
+					rm -f "$endpoints_file"
+					proto_setup_failed "$config"
+					exit 1
+				}
 			else
 				proto_add_host_dependency "$config" "$address" "$tunlink"
 			fi
-		done
+		done < "$endpoints_file"
+
+		endpoints_status=$?
+		rm -f "$endpoints_file"
+
+		[ "$endpoints_status" -eq 0 ] || {
+			proto_setup_failed "$config"
+			exit 1
+		}
 	fi
+
 
 	proto_send_update "$config"
 }
