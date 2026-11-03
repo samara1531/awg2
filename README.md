@@ -27,7 +27,7 @@
 ```sh
 wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh" | sh
 ```
-**Вариант с AWG-GO (установите unzip)**
+**Вариант с AWG-GO (установите пакет unzip)**
 ```sh
 wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-GO.sh" | sh
 ```
