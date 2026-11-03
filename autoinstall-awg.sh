@@ -1,13 +1,18 @@
+
 #!/bin/sh
 # AWG auto installer (BusyBox / ash compatible)
 # Работает с SNAPSHOT, строго берёт текущий tag
-# unzip должен быть установлен вручную
+# unzip устанавливается автоматически при необходимости
 
 set -e
 
 REPO="samara1531/awg2"
 API="https://api.github.com/repos/$REPO/releases?per_page=100"
 TMP="/tmp/awg"
+
+# --- cleanup при любом завершении ---
+trap 'rm -rf "$TMP"' EXIT
+trap 'exit 1' HUP INT TERM
 
 mkdir -p "$TMP"
 cd "$TMP" || exit 1
@@ -23,6 +28,46 @@ TARGET_DASH="$(echo "$TARGET" | tr '/' '-')"
 
 echo "[*] OpenWrt release: $REL"
 echo "[*] Target: $TARGET"
+
+# --- detect package manager ---
+if command -v opkg >/dev/null 2>&1; then
+    PM="opkg"
+elif command -v apk >/dev/null 2>&1; then
+    PM="apk"
+else
+    echo "❌ No package manager found"
+    exit 1
+fi
+
+# --- install unzip if missing ---
+INDEX_UPDATED=0
+
+if ! command -v unzip >/dev/null 2>&1; then
+    echo "[*] unzip not found, installing..."
+
+    if [ "$PM" = "opkg" ]; then
+        opkg update || echo "⚠ Failed to update opkg lists, continuing..."
+        INDEX_UPDATED=1
+        opkg install unzip || {
+            echo "❌ Failed to install unzip"
+            exit 1
+        }
+    else
+        apk update || echo "⚠ Failed to update apk lists, continuing..."
+        INDEX_UPDATED=1
+        apk add unzip || {
+            echo "❌ Failed to install unzip"
+            exit 1
+        }
+    fi
+
+    if ! command -v unzip >/dev/null 2>&1; then
+        echo "❌ unzip installation failed"
+        exit 1
+    fi
+
+    echo "[+] unzip installed successfully"
+fi
 
 # --- fetch releases ---
 echo "[*] Fetching releases info..."
@@ -84,27 +129,19 @@ wget -qO awg.zip "$ZIP_URL" || {
 
 # --- unpack ---
 unzip -o awg.zip >/dev/null || {
-    echo "❌ unzip не найден или ошибка распаковки. Установи unzip вручную"
+    echo "❌ unzip error"
     exit 1
 }
 
-# --- detect package manager ---
-if command -v opkg >/dev/null 2>&1; then
-    PM="opkg"
-elif command -v apk >/dev/null 2>&1; then
-    PM="apk"
-else
-    echo "❌ No package manager found"
-    exit 1
-fi
-
 # --- обновляем индексы репозиториев ---
-if [ "$PM" = "opkg" ]; then
-    echo "[*] Updating opkg package lists..."
-    opkg update || echo "❌ Failed to update opkg lists, продолжаем"
-else
-    echo "[*] Updating apk package lists..."
-    apk update || echo "❌ Failed to update apk lists, продолжаем"
+if [ "$INDEX_UPDATED" -eq 0 ]; then
+    if [ "$PM" = "opkg" ]; then
+        echo "[*] Updating opkg package lists..."
+        opkg update || echo "⚠ Failed to update opkg lists, continuing..."
+    else
+        echo "[*] Updating apk package lists..."
+        apk update || echo "⚠ Failed to update apk lists, continuing..."
+    fi
 fi
 
 echo "[*] Installing packages via $PM"
