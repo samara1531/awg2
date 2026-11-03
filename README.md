@@ -23,14 +23,8 @@
 -----------------------
 ### Автоустановка AWG (если есть пакеты под вашу версию WRT)
 
- **Для OpenWrt 23.05.6 – 24.10.x**
+ **Для OpenWrt 23.05.6 – 25.12.x**
 ```sh
-opkg update && opkg install unzip
-wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh" | sh
-```
-**Для OpenWrt 25.12.x**
-```sh
-apk add unzip
 wget -qO- "https://raw.githubusercontent.com/samara1531/awg2/main/autoinstall-awg.sh" | sh
 ```
 **Вариант с AWG-GO (установите unzip)**
